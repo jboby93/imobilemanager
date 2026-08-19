@@ -496,15 +496,15 @@ class Device(Mapping[str, Any]):
 
 			# refresh any available stats, as the boot-mode may have changed
 			if refresh or not was_booted_normally:
-				plist = Device._get_idinfo_from_udid(udid)
+				plist = Device._get_idinfo_from_udid(self.udid)
 				plist["BootMode"] = "Normal"
 				self._info = plist
 
-				self._storage = self.get_storage_info()
-				self._gasgauge = self.get_power_info()
-				self._battery = self.get_battery_info()
-				self._mdm = self.get_mdm_info()
-				self._locale = self.get_locale_info()
+				self._storage = self.get_storage_info(refresh=True)
+				self._gasgauge = self.get_power_info(refresh=True)
+				self._battery = self.get_battery_info(refresh=True)
+				self._mdm = self.get_mdm_info(refresh=True)
+				self._locale = self.get_locale_info(refresh=True)
 				_ = self.phone_number_2
 				self.infer_model()
 
@@ -514,7 +514,7 @@ class Device(Mapping[str, Any]):
 			self._connected = True
 			logger.debug(f"* found recovery device with id {self.identifier}")
 			self._info["BootMode"] = "recovery"
-			
+
 			return True
 		else:
 			self._connected = False
@@ -2094,7 +2094,7 @@ class IMDApp:
 		if len(cls.active_devices) == 0:
 			term.print_warning("* No devices were detected")
 			print()
-			print("If you have devices plugged in, make sure they are powered on and unlocked, or in recovery mode.")
+			term.print("If you have devices plugged in, make sure they are powered on and unlocked, or in recovery mode.")
 			print()
 			term.pause()
 			return
@@ -2145,26 +2145,38 @@ class IMDApp:
 			selection = term.menu("Select a device and press ENTER for more information", cls.active_devices, title=f"{APP_NAME} ({APP_VERSION}) - Connected devices", on_print_option=cls._device_menu_print_option, show_pages=False, clear_on_finish=False, instructions=instructions, hotkeys=hotkeys, format_str="  %s [%s]", format_fields=["ModelName", "SerialNumber"])
 			if selection:
 				if type(selection) is Device:
-					# show summary
-					cls.print_device_summary(selection)
+					refreshed = True
+					while refreshed:
+						refreshed = False
+						# show summary
+						cls.print_device_summary(selection)
 
-					# term.pause(prompt="Press any key to return to the device menu...")
+						# term.pause(prompt="Press any key to return to the device menu...")
 
-					# possibly enter a keyboard wait loop, and show Storage Info with the S key?
-					# selection.get_storage_info()
-					print("Press any key to return to the device menu...")
-					# sleep(0.5)
-					summary_key = term.get_keypress()
-					match summary_key:
-						case "s":
-							if selection.bootmode == "normal":
-								cls.print_storage_summary(selection)
-						case "q":
-							if selection.bootmode == "normal":
-								term.screen("Generating QR codes...")
-								cls.show_qr_codes(selection)
-						case "#": # REPL mode
-							cls.device_repl_loop(selection)
+						# possibly enter a keyboard wait loop, and show Storage Info with the S key?
+						# selection.get_storage_info()
+						print("Press any key to return to the device menu...")
+						# sleep(0.5)
+						summary_key = term.get_keypress()
+						match summary_key:
+							case "s":
+								if selection.bootmode == "normal":
+									cls.print_storage_summary(selection)
+							case "q":
+								if selection.bootmode == "normal":
+									term.screen("Generating QR codes...")
+									cls.show_qr_codes(selection)
+							case "r":
+								term.screen("Refreshing device info...")
+								if selection.ping(refresh=True):
+									refreshed = True
+								else:
+									term.print_warning("Connection to the device was lost.")
+									term.print("Make sure the device is plugged in and unlocked, or in recovery mode, and try again.")
+									print()
+									term.pause(prompt="Press any key to return to the device menu...")
+							case "#": # REPL mode
+								cls.device_repl_loop(selection)
 				elif type(selection) is tuple:
 					# (selection_index when the key was pressed, the defined response, the key)
 					device = cls.active_devices[selection[0]]
@@ -2255,12 +2267,12 @@ class IMDApp:
 						case "repl":
 							cls.device_repl_loop(device)
 						case "ping":
-							term.screen("Ping device")
+							term.screen(f"{APP_NAME} - Pinging device {device.model_name} - {device.serial_number or device.ecid}")
 							term.print_msg(f"Searching for device {device.serial_number or device.ecid}")
 							if device.ping():
-								term.print_success("device is present and connectable")
+								term.print_success("This device is currently connected.")
 							else:
-								term.print_warning("device not found or not able to connect")
+								term.print_warning("This device is no longer connected or accessible.")
 
 								# remove from active devices list?
 							term.pause()
