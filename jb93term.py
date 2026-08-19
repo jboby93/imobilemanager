@@ -1205,9 +1205,9 @@ class Terminal:
 			
 			helpcontent = []
 			for line in helpsections[section].split("\n"):
-				if len(line.lstrip()) > termwidth:
+				if len(line.lstrip()) > termwidth-2:
 					i = 0
-					for l in textwrap.wrap(line, termwidth):
+					for l in textwrap.wrap(line, termwidth-2):
 						# if original line started with a formatting mark, need to retain that!
 						if line.lstrip()[0:3] in ["== ", "** ", "## ", "!! ", "~~ ", ".. "] and i > 0:
 							helpcontent.append(line.lstrip()[0:3] + l)
