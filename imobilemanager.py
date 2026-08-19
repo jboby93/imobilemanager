@@ -2187,9 +2187,6 @@ class IMDApp:
 							if not devselection:
 								continue
 
-							# for dev in devselection:
-							# 	print(dev)
-
 							if cls.confirm_wipe_devices(devselection):
 								logger.info("user confirmed wipe of devices")
 								
@@ -2551,7 +2548,10 @@ class IMDApp:
 						else:
 							term.modalalert("Unable to restart", "An error occurred while attempting to restart this job.  Quit this script and try again.")
 					case "purge-finished":
-						pass
+						for e in cls.restorer.jobs:
+							if cls.restorer.jobs[e][0].done():
+								del cls.restorer.jobs[e]
+						initial_index = 0
 			elif type(selection) is str:
 				# ECID (the menu choices are a list of keys)
 				job = cls.restorer.jobs[selection]
