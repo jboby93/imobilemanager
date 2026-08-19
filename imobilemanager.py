@@ -356,7 +356,7 @@ class Device(Mapping[str, Any]):
 			return False
 
 	@classmethod
-	def from_udid(cls, udid) -> Device:
+	def _get_idinfo_from_udid(cls, udid):
 		# ideally, try to do all polling for info upfront when the device is detected
 		output = _libimd("ideviceinfo", "--udid", udid, "--xml", timeout=10)
 		# note: THIS MAY FAIL if MDM policy prevents device connection to computers (ex. FM Services iPads in Normal Boot mode)
@@ -381,11 +381,14 @@ class Device(Mapping[str, Any]):
 				# ??
 				# TODO: check if a recovery job has been started on this device (add a flag for this)
 				logger.error("unable to retrieve info from device with UDID %s" % udid)
-				term.print_error("unable to retrieve info from device with UDID %s" % udid)
+				term.print_error("unable to retrieve info from device with UDID %s - make sure it is unlocked or in recovery mode" % udid)
 				return None
 
-		plist = decode_plist(ElementTree.XML(output))
+		return decode_plist(ElementTree.XML(output))
 
+	@classmethod
+	def from_udid(cls, udid) -> Device:
+		plist = cls._get_idinfo_from_udid(udid)
 		plist["BootMode"] = "Normal"
 
 		dev = Device(plist)
@@ -473,15 +476,11 @@ class Device(Mapping[str, Any]):
 		return str(self._info)
 
 	# functions
-	def ping(self) -> bool:
+	def ping(self, *, refresh=False) -> bool:
 		# checks to see if the device is still connected/accessible
 		logger.debug("pinging device with id %s" % self.identifier)
-		# do a rescan and get all connected UDIDs/ECIDs
-		# nids = IMobileDevice.get_connected_ids()
-		# rids = IMobileDevice.get_recovery_ids() # list of (ecid, serial)
-		#in_normal = self.udid in nids
-		# in_recovery = self.ecid in [f"0x{rid[0]}" for rid in rids]
 
+		was_booted_normally = (self.bootmode == "normal")
 		# much more efficient way:
 		in_normal = "not found" not in _libimd("ideviceinfo", "--udid", self.udid, "--xml")
 		in_recovery = False
@@ -494,15 +493,28 @@ class Device(Mapping[str, Any]):
 			self._connected = True
 			logger.debug(f"* found device with id {self.identifier}")
 			self._info["BootMode"] = "normal"
+
+			# refresh any available stats, as the boot-mode may have changed
+			if refresh or not was_booted_normally:
+				plist = Device._get_idinfo_from_udid(udid)
+				plist["BootMode"] = "Normal"
+				self._info = plist
+
+				self._storage = self.get_storage_info()
+				self._gasgauge = self.get_power_info()
+				self._battery = self.get_battery_info()
+				self._mdm = self.get_mdm_info()
+				self._locale = self.get_locale_info()
+				_ = self.phone_number_2
+				self.infer_model()
+
 			return True
 		elif in_recovery:
 			self._in_recovery = True
 			self._connected = True
 			logger.debug(f"* found recovery device with id {self.identifier}")
 			self._info["BootMode"] = "recovery"
-
-			# it's possible that the device was first seen in recovery, and thus may be missing some of its properties and values
-			# 
+			
 			return True
 		else:
 			self._connected = False
@@ -1105,71 +1117,7 @@ class Device(Mapping[str, Any]):
 				soc_index: int = (tokens.index("") if "" in tokens else storage_capacity_index) - 1
 				if (soc := soc_mapping.get(self[Attribute.HARDWARE_MODEL].upper(), soc_mapping.get(self[Attribute.HARDWARE_PLATFORM].upper(), soc_mapping.get(tokens[soc_index])))): tokens[soc_index] = soc
 				return "iPad" + "".join(abbreviator(token, 4) for token in (*tokens[:storage_capacity_index + 1], *("Wi-Fi" + (" + Cellular" if self.is_cellular_capable else "")).split(), *tokens[storage_capacity_index + 1:]))
-	"""
-	firmware_map = {}
-		firmwares = cls.ipsw.get_downloaded_firmwares_dict()["by_file"]
-
-		# check signed with is_firmware_signed(devid, version=... OR build=...)
-		for dev in devices:
-			matches = {ipsw: firmwares[ipsw] for ipsw in firmwares if (dev.product_type in firmwares[ipsw]["device_ids"]) and cls.ipsw.is_firmware_signed(dev.product_type, version=firmwares[ipsw]["version"])}
-			firmware_map[dev.product_type] = matches
 	
-	example output of get_downloaded_firmwares_dict()["by_file"]: 
-	{
-		"iPad_Pro_M4_26.5.2_23F84_Restore.ipsw": {
-			"fullpath": "C:/Users/JennaBoby/Downloads/iOS Firmware/iPad_Pro_M4_26.5.2_23F84_Restore.ipsw",
-			"version": "26.5.2",
-			"build": "23F84",
-			"filesize": 10818633957,
-			"modified": 1784818951.718124,
-			"osname": "iPadOS",
-			"device_ids": [
-				"iPad16,3",
-				"iPad16,4",
-				"iPad16,5",
-				"iPad16,6"
-			],
-			"device_names": [
-				"iPad Pro 11/13\" (M4)"
-			],
-			"device_group": "iPad_Pro_M4"
-		},
-		"iPhone17,5_26.5.2_23F84_Restore.ipsw": {
-			"fullpath": "C:/Users/JennaBoby/Downloads/iOS Firmware/iPhone17,5_26.5.2_23F84_Restore.ipsw",
-			"version": "26.5.2",
-			"build": "23F84",
-			"filesize": 10709928546,
-			"modified": 1784819214.158099,
-			"osname": "iOS",
-			"device_ids": [
-				"iPhone17,5"
-			],
-			"device_names": [
-				"iPhone 16e"
-			]
-		}
-	}
-	get_all_firmwares: example of Firmware dict element
-		{
-		  "identifier": "iPhone17,5",
-		  "version": "26.4.2",
-		  "buildid": "23E261",
-		  "sha1sum": "94cf78c5dcb752ded3b25ad70a0cdc0e63432386",
-		  "md5sum": "e3175482fda8e6738a8344a7a3ebce7b",
-		  "sha256sum": "b0fbe42d8f03a328dc664ea6736659b003064aa25f91982951ccce4273a6f510",
-		  "filesize": 10709510276,
-		  "url": "https://updates.cdn-apple.com/2026SpringFCS/fullrestores/122-60273/CE3DB083-76B9-4E5D-94FB-DED041A78DAE/iPhone17,5_26.4.2_23E261_Restore.ipsw",
-		  "releasedate": "2026-04-22T17:34:35Z",
-		  "uploaddate": "2026-04-19T17:33:12Z",
-		  "signed": true
-		}, PLUS these fields:
-			fw["saveto"] = os.path.join(self.downloadpath, ipswname)
-			fw["groupid"] = groupid
-			fw["ipswfilename"] = ipswname
-			fw["prettysize"] = f"{round(fw["filesize"] / 1024 / 1024 / 1024, 2)} GB"
-			fw["prettydate"] = datetime.strptime(fw["releasedate"] or fw["uploaddate"], "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")
-	"""
-
 	# returns filenames of ALL local firmwares found for a device, regardless of if they are signed or not
 	def detect_all_firmwares(self, *, only_signed=False):
 		# ipsw: str ::=> Firmware dict {}
