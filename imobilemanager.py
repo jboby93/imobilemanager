@@ -2517,6 +2517,13 @@ class IMDApp:
 		running = True
 		initial_index = 0
 		while running:
+			if len(cls.restorer.jobs) == 0:
+				running = False
+				term.screen(title)
+				term.print_msg("No restore jobs are in the queue.")
+				term.pause()
+				continue
+				
 			selection = term.menu("Current jobs in restore queue:", list(cls.restorer.jobs.keys()), title=title, initial_index=initial_index, on_print_option=print_option, instructions=instructions, hotkeys=hotkeys, quit_keys=["x", "q", "backspace"], clear_on_finish=False)
 			if not selection:
 				running = False
