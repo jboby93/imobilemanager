@@ -729,13 +729,6 @@ class Device(Mapping[str, Any]):
 
 		return self._system_apps
 
-	def refresh(self):
-		if (dev := Device.from_udid(self.udid)):
-			self = dev
-		else:
-			logger.warning("unable to find device %s [%s]; maybe unplugged or in other boot mode?" % (self.model_name, self.serial_number))
-			pass
-
 	def set_name(self, newname):
 		_libimd("idevicename", "--udid", self.udid, newname)
 		# verify
@@ -2635,13 +2628,22 @@ class IMDApp:
 						case "exit":
 							running = False
 						case "wipe":
-							devices = cls.select_devices()
-							if devices and type(devices) is list and len(devices) > 0:
-								if cls.confirm_wipe_devices(devices):
-									term.print_error("do the thing - not implemented :)")
-									term.pause()
-							else:
-								pass
+							devselection = cls.select_devices("Choose one or more devices to ERASE and RESTORE to factory settings.", "Restore device(s)", confirm_with_c=True, hazard_menu=True)
+							if not devselection:
+								continue
+
+							if cls.confirm_wipe_devices(devselection):
+								logger.info("user confirmed wipe of devices")
+								
+								for dev in devselection:
+									cls.restorer.submit_job(dev)
+
+								print()
+								term.print_success("* Restore jobs have been submitted *")
+								print()
+
+								if term.input_yn("Inspect running jobs?"):
+									cls.view_restore_jobs()
 						case "wipe-appl":
 							if platform.system() != "Darwin":
 								term.screen(f"{APP_NAME} - {APP_VERSION}")
