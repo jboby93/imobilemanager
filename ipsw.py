@@ -1043,6 +1043,40 @@ class IPSWApp:
 			"h": "hash"
 		}
 
+		def print_option(index: int, highlighted: bool, opt: object):
+			format_str = "%s - %s %s (%s)"
+			values = (
+				f"{opt["device_names"][0]}..." if len(opt["device_names"]) > 1 else opt["device_names"][0],
+				opt["osname"],
+				opt["version"],
+				opt["device_ids"][0]
+			)
+
+			if highlighted:
+				term.print_highlighted("  " + (format_str % values))
+			else:
+				term.print("  " + (format_str % values))
+
+		def summarize(firmware):
+			# SUMMARY
+			term.screen(f"{cls.app_name} - {firmware["file"]}")
+			term.print_msg(f"{firmware["osname"]} {firmware["version"]}")
+			print("  for: " + ", ".join(firmware["device_names"]))
+			print()
+			print("  Version: " + firmware["version"] + " (" + firmware["build"] + ")")
+			print("  Path: " + firmware["fullpath"])
+			print("  Size: " + f"{round(firmware["filesize"] / 1024 / 1024 / 1024, 2)} GB")
+			print()
+			# TODO: show if this firmware is currently being signed
+			print("  Compatibile with: ")
+			for did in firmware["device_ids"]:
+				print(f"  - {did}")
+			# print(json.dumps(firmware, indent=4))
+
+			print()
+			term.pause()
+
+		initial_index = 0
 		while running:
 			if do_refresh:
 				term.screen(cls.app_name + " - Manage firmwares")
@@ -1059,7 +1093,7 @@ class IPSWApp:
 
 			choices = _fmap_to_choices(existing_files)
 
-			selection = term.menu("Showing firmwares in: " + ipsw.get_path(), choices, title="Firmware Manager", format_str="%s - %s %s (%s)", format_fields=["device_names", "osname", "version", "file"], instructions=main_help, hotkeys=hotkeys_map)
+			selection = term.menu("Showing firmwares in: " + ipsw.get_path(), choices, title="Firmware Manager", format_str="%s - %s %s (%s)", format_fields=["device_names", "osname", "version", "file"], on_print_option=print_option, initial_index=initial_index, return_index=True, instructions=main_help, hotkeys=hotkeys_map, quit_keys=["x", "backspace", "esc"])
 
 			if selection is None:
 				# cancelled
@@ -1073,20 +1107,7 @@ class IPSWApp:
 						# REFRESH
 						do_refresh = True
 					elif key == "s":
-						# SUMMARY
-						term.screen(f"{cls.app_name} - {firmware["file"]}")
-						term.print_msg(f"{firmware["osname"]} {firmware["version"]}")
-						print("  for: " + ", ".join(firmware["device_names"]))
-						print()
-						print("  Version: " + firmware["version"] + " (" + firmware["build"] + ")")
-						print("  Path: " + firmware["fullpath"])
-						print("  Size: " + f"{round(firmware["filesize"] / 1024 / 1024 / 1024, 2)} GB")
-						print()
-						print("  Compatibile with: " + str(firmware["device_ids"]))
-						# print(json.dumps(firmware, indent=4))
-
-						print()
-						term.pause()
+						summarize(firmware)
 					elif key == "q":
 						running = False
 					elif key == "h":
@@ -1153,12 +1174,13 @@ class IPSWApp:
 								term.pause()
 
 							do_refresh = True
-				elif type(selection) is dict:
-					# firmware was selected
+				elif type(selection) is int:
+					# firmware was selected; index was returned
+					firmware = choices[selection]
+					initial_index = selection
+					summarize(firmware)
 					# 
 					# fields: file, fullpath, version, filesize (in bytes), modified (file mod time), device_ids (list of compatible device ids), osname (iOS or iPadOS), device_names
-					pass
-
 
 
 	@classmethod
