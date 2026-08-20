@@ -10,3 +10,6 @@ idevice_models.json
 hao*
 install*
 notes.txt
+.DS_Store
+screenshots/
+._*
