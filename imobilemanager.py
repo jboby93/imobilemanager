@@ -2545,10 +2545,14 @@ class IMDApp:
 						else:
 							term.modalalert("Unable to restart", "An error occurred while attempting to restart this job.  Quit this script and try again.")
 					case "purge-finished":
-						for e in cls.restorer.jobs:
-							if cls.restorer.jobs[e][0].done():
-								del cls.restorer.jobs[e]
-						initial_index = 0
+						for i in range(len(keys := list(cls.restorer.jobs.keys()))):
+							if cls.restorer.jobs[(key := keys[i])][0].done():
+								del cls.restorer.jobs[key]
+
+						if initial_index >= len(cls.restorer.jobs):
+							initial_index = 0
+					case "view-log":
+						pass
 			elif type(selection) is str:
 				# ECID (the menu choices are a list of keys)
 				job = cls.restorer.jobs[selection]
