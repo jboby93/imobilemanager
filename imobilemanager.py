@@ -1861,7 +1861,7 @@ class IMDApp:
 	@classmethod
 	def print_recovery_device_summary(cls, device):
 		term.screen("Summary: %s - %s (recovery mode)" % (device.model_name, device.serial_number))
-		term.print_labelled(f"    {term.mode["underline"]}Device{term.modereset["underline"]}", f"{device.model_name} (recovery mode)", color="green")
+		term.print_labelled("    Device", f"{device.model_name} (recovery mode)", color="green")
 		term.print_labelled("      Name", device.name)
 		term.print_labelled("     Model", f"{device.product_type}")
 		if (chip := ChipID.lookup(device.chipid)):
@@ -2164,6 +2164,7 @@ class IMDApp:
 									cls.show_qr_codes(selection)
 							case "r":
 								term.screen("Refreshing device info...")
+								term.print_msg("Connecting to device, please wait...")
 								if selection.ping(refresh=True):
 									refreshed = True
 								else:
@@ -2208,7 +2209,7 @@ class IMDApp:
 								term.modalalert("Invalid action", f"The device {device.model_name} [{device.serial_number}] is currently being restored and cannot be shut down.", buttons=term.ModalButtons.OK, clear_on_start=False, allow_esc_cancel=True)
 								continue
 
-							if term.modalalert("Confirm action", f"The device {device.model_name} [{device.serial_number}] will shutdown.", buttons=term.ModalButtons.OKCANCEL, default_button=1, clear_on_start=False, allow_esc_cancel=True):
+							if term.modalalert("Confirm action", f"The device {device.model_name} [{device.serial_number}] will be shut down.", buttons=term.ModalButtons.OKCANCEL, default_button=1, clear_on_start=False, allow_esc_cancel=True):
 								device.shutdown()
 						case "qrcodes":
 							term.screen("Generating QR codes...")
