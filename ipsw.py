@@ -11,6 +11,10 @@ from urllib.request import urlopen
 
 from jb93term import Terminal as term
 
+APP_NAME = "IPSWApp"
+APP_VERSION = "v3.1"
+APP_DATE = datetime.fromtimestamp(os.path.getmtime(sys.argv[0])).strftime("%Y-%m-%d %H:%M:%S")
+
 # make sure pycurl is installed
 import importlib.util
 pycurl_spec = importlib.util.find_spec("pycurl")
@@ -475,8 +479,6 @@ class IPSW:
 				raise ValueError
 
 class IPSWApp:
-	app_name = "IPSWApp v3"
-
 	dl_thread_count = 2
 
 	# returns:
@@ -488,7 +490,7 @@ class IPSWApp:
 		running = True
 
 		while running:
-			term.screen("%s - Select device" % cls.app_name)
+			term.screen(f"{APP_NAME} ({APP_VERSION}) - Select device")
 
 			searchfor = input("Enter all or part of an Apple device name: ").lower().strip()
 			if searchfor == "":
@@ -523,7 +525,7 @@ class IPSWApp:
 	@classmethod
 	def menu_select_firmware(cls, ipsw, device, show_all=False, *, allow_ctrlc=False):
 		try:
-			term.screen("%s - Select firmware for: %s" % (cls.app_name, device["device"]))
+			term.screen(f"{APP_NAME} ({APP_VERSION}) - Select firmware for: {device["device"]}")
 
 			term.print_msg("Fetching firmware list for %s (%s)..." % (device["device"], device["id"]))
 
@@ -566,7 +568,7 @@ class IPSWApp:
 		last_result = None
 
 		while not selection_done:
-			term.screen("%s - Select devices" % cls.app_name)
+			term.screen(f"{APP_NAME} ({APP_VERSION}) - Select devices")
 
 			if last_result:
 				if last_result["type"] == "error":
@@ -632,7 +634,7 @@ class IPSWApp:
 	# if None, deletes old versions for each IPSW/devID found in folder
 	@classmethod
 	def action_download_multiple(cls, ipsw, devices, *, delete_old_versions=False, blocking=True, delete_list=None):
-		term.screen("%s - Confirm downloads" % cls.app_name)
+		term.screen(f"{APP_NAME} ({APP_VERSION}) - Confirm downloads")
 
 		term.print_msg("The following firmwares will be downloaded:")
 		target_files = []
@@ -738,7 +740,7 @@ class IPSWApp:
 
 	@classmethod
 	def action_update_existing_files(cls, ipsw, *, custom_selection=False):
-		term.screen(cls.app_name + " - Existing firmwares")
+		term.screen(f"{APP_NAME} ({APP_VERSION}) - Existing firmwares")
 		term.print_msg("Firmwares in %s:" % ipsw.downloadpath)
 		print()
 
@@ -883,7 +885,7 @@ class IPSWApp:
 		cls.action_update_existing_files(ipsw, custom_selection=custom)
 		return
 
-		term.screen(cls.app_name + " - Existing firmwares")
+		term.screen(f"{APP_NAME} ({APP_VERSION}) - Existing firmwares")
 		term.print_msg("Firmwares in %s:" % ipsw.downloadpath)
 
 		existing_firmwares = ipsw.get_downloaded_firmwares()
@@ -986,7 +988,7 @@ class IPSWApp:
 
 	@classmethod
 	def action_manage_downloads(cls, ipsw):
-		term.screen(cls.app_name + " - Manage firmwares")
+		term.screen(f"{APP_NAME} ({APP_VERSION}) - Manage firmwares")
 		term.print_msg("Detecting firmwares in %s:" % ipsw.downloadpath)
 
 		resp = ipsw.get_downloaded_firmwares_dict()
@@ -1059,18 +1061,21 @@ class IPSWApp:
 
 		def summarize(firmware):
 			# SUMMARY
-			term.screen(f"{cls.app_name} - {firmware["file"]}")
+			term.screen(f"{APP_NAME} - {firmware["file"]}")
 			term.print_msg(f"{firmware["osname"]} {firmware["version"]}")
-			print("  for: " + ", ".join(firmware["device_names"]))
+			term.print("  for: " + ", ".join(firmware["device_names"]))
 			print()
 			print("  Version: " + firmware["version"] + " (" + firmware["build"] + ")")
 			print("  Path: " + firmware["fullpath"])
 			print("  Size: " + f"{round(firmware["filesize"] / 1024 / 1024 / 1024, 2)} GB")
 			print()
-			# TODO: show if this firmware is currently being signed
 			print("  Compatibile with: ")
 			for did in firmware["device_ids"]:
-				print(f"  - {did}")
+				print(f"  - {ipsw.device_names[did]} ({did})")
+				if ipsw.is_firmware_signed(did, version=firmware["version"]):
+					term.print_success("    * Signed by Apple - you can restore this device to this firmware")
+				else:
+					term.print_warning("    * NOT signed by Apple - you can NOT restore this device to this firmware")
 			# print(json.dumps(firmware, indent=4))
 
 			print()
@@ -1079,7 +1084,7 @@ class IPSWApp:
 		initial_index = 0
 		while running:
 			if do_refresh:
-				term.screen(cls.app_name + " - Manage firmwares")
+				term.screen(f"{APP_NAME} ({APP_VERSION}) - Manage firmwares")
 				term.print_msg("Detecting firmwares in %s:" % ipsw.downloadpath)
 
 				existing_files = ipsw.get_downloaded_firmwares_dict()["by_file"]
@@ -1111,7 +1116,7 @@ class IPSWApp:
 					elif key == "q":
 						running = False
 					elif key == "h":
-						term.screen(f"{cls.app_name} - {firmware["file"]}")
+						term.screen(f"{APP_NAME} - {firmware["file"]}")
 						term.print_msg(f"{firmware["osname"]} {firmware["version"]}")
 						print("  for: " + ", ".join(firmware["device_names"]))
 						print()
@@ -1194,7 +1199,7 @@ class IPSWApp:
 
 		try:
 			while running:
-				term.screen(cls.app_name)
+				term.screen(f"{APP_NAME} - {APP_VERSION} ({APP_DATE})")
 
 				if last_result:
 					if last_result["type"] == "error":
