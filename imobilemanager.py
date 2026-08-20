@@ -34,7 +34,7 @@ from ipsw import IPSW, IPSWApp
 from imm_defs import REPLCompleter, Carrier, Attribute, DomainKey, MobileApp, ChipID
 
 APP_NAME="iMobileManager"
-APP_VERSION="0.6 beta"
+APP_VERSION="0.7 beta"
 APP_DATE=datetime.fromtimestamp(os.path.getmtime(sys.argv[0])).strftime("%Y-%m-%d %H:%M:%S")
 DEBUG=True
 LOG_TO_STDOUT=False
@@ -61,8 +61,11 @@ def system(*args: str, **kwargs: Any) -> str | None:
 			kwargs["cwd"] = IMobileDevice.PROGRAM_PATH
 		# logger.debug("   with timeout %d" % kwargs["timeout"])
 
+		# remove custom keyword args since subprocess.run() is a [redacted] and doesn't ignore unknown args
+		subp_kwargs = {k: kwargs[k] for k in kwargs if k not in ["restore_job"]}
+
 		# print(args)
-		process = subprocess.run(args, check=True, capture_output=True, shell=SYSTEM_SHELLVALUE, text=True, encoding="utf-8", **kwargs)
+		process = subprocess.run(args, check=True, capture_output=True, shell=SYSTEM_SHELLVALUE, text=True, encoding="utf-8", **subp_kwargs)
 		output = process.stdout or process.stderr
 		return output.strip() if output else None
 	except subprocess.CalledProcessError as exception:
