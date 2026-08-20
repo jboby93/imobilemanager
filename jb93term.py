@@ -625,7 +625,7 @@ class Terminal:
 			if show_selection:
 				cls.print_msg("%d of %d " % (selection_index + 1, len(choices)), end="")
 			if show_pages:
-				cls.print_warning("Page %d of %d" % (page_number + 1, max_pages))
+				cls.print_warning(f"{" / " if show_selection else ""}Page {page_number+1} of {max_pages}")
 			else:
 				print()
 
