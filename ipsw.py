@@ -1098,7 +1098,7 @@ class IPSWApp:
 
 			choices = _fmap_to_choices(existing_files)
 
-			selection = term.menu("Showing firmwares in: " + ipsw.get_path(), choices, title="Firmware Manager", format_str="%s - %s %s (%s)", format_fields=["device_names", "osname", "version", "file"], on_print_option=print_option, initial_index=initial_index, return_index=True, instructions=main_help, hotkeys=hotkeys_map, quit_keys=["x", "backspace", "esc"])
+			selection = term.menu("Showing firmwares in: " + ipsw.get_path(), choices, title="Firmware Manager", format_str="%s", format_fields=["file"], on_print_option=print_option, initial_index=initial_index, return_index=True, instructions=main_help, hotkeys=hotkeys_map, quit_keys=["x", "backspace", "esc"])
 
 			if selection is None:
 				# cancelled
