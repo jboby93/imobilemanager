@@ -1131,7 +1131,7 @@ class Device(Mapping[str, Any]):
 		normalizer: re.Pattern = re.compile("\\(|\\)|\"|\\-|inch|th|generation|gen|gb", re.IGNORECASE),
 		abbreviator: Callable[[str, int], str] = cache(lambda token, length: token[0] if token.lower() not in {"plus", "air"} and len(token) >= length and not any(map(str.isdigit, token)) else token),
 		soc_mapping: Mapping[str, str] = {"A16": "11", "T8103": "M1", "T8112": "M2", "T8122": "M3", "T8132": "M4", "T8142": "M5"}
-	) -> str | None:
+	) -> str | None:		
 		if (product_name := self.full_model_name) and (tokens := [soc_mapping.get(token, token) for token in normalizer.sub("", product_name).split()[1:]]):
 			if self.is_iphone:
 				# iPhone 6s Plus 128GB Space Gray -> iP6sPlus128SG
@@ -1148,7 +1148,14 @@ class Device(Mapping[str, Any]):
 				storage_capacity_index: int = next(len(tokens) - index - 1 for index, value in enumerate(reversed(tokens)) if value.replace(".", "", 1).isdigit())
 				soc_index: int = (tokens.index("") if "" in tokens else storage_capacity_index) - 1
 				if (soc := soc_mapping.get(self[Attribute.HARDWARE_MODEL].upper(), soc_mapping.get(self[Attribute.HARDWARE_PLATFORM].upper(), soc_mapping.get(tokens[soc_index])))): tokens[soc_index] = soc
-				return "iPad" + "".join(abbreviator(token, 4) for token in (*tokens[:storage_capacity_index + 1], *("Wi-Fi" + (" + Cellular" if self.is_cellular_capable else "")).split(), *tokens[storage_capacity_index + 1:]))
+				
+				computed_item_code = "iPad" + "".join(abbreviator(token, 4) for token in (*tokens[:storage_capacity_index + 1], *("Wi-Fi" + (" + Cellular" if self.is_cellular_capable else "")).split(), *tokens[storage_capacity_index + 1:]))
+				# overrides for weird naming conventions that break normal rules
+				if computed_item_code == "iPad1064W+CS":
+					# iPad (10th Gen) 64GB Wi-Fi + Cellular Silver
+					computed_item_code = "iPad1064WiFi+CS"
+
+				return computed_item_code
 	
 	# returns filenames of ALL local firmwares found for a device, regardless of if they are signed or not
 	def detect_all_firmwares(self, *, only_signed=False):
