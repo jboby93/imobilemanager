@@ -773,7 +773,7 @@ class Device(Mapping[str, Any]):
 		# verify
 		success = (_libimd("idevicename", "--udid", self.udid).strip() == newname)
 		if success:
-			self["DeviceName"] = newname
+			self._info["DeviceName"] = newname
 		return success
 
 	# convenience properties
