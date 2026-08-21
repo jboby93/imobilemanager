@@ -50,7 +50,13 @@ def normalize_path(path: str, /, *paths: Any) -> str: return (root := os.path.jo
 SYSTEM_SHELLVALUE=False
 SYSTEM_SHELLVALUE_FLIPPED=False # becomes True if the flag is dynamically changed to address crashing
 
-def system(*args: str, **kwargs: Any) -> str | None:
+# on success:
+# 	=> (returncode: int, output: str)
+# on CalledProcessError
+#   => (returncode: int, output: str)
+# on TimeoutError:
+#   => (timeout: int, None)
+def system2(*args, **kwargs):
 	global SYSTEM_SHELLVALUE, SYSTEM_SHELLVALUE_FLIPPED
 	try:
 		logger.debug("[*] Running %s", args)
@@ -67,29 +73,38 @@ def system(*args: str, **kwargs: Any) -> str | None:
 		# print(args)
 		process = subprocess.run(args, check=True, capture_output=True, shell=SYSTEM_SHELLVALUE, text=True, encoding="utf-8", **subp_kwargs)
 		output = process.stdout or process.stderr
-		return output.strip() if output else None
+		# return output.strip() if output else None
+		return (0, output.strip() if output else None)
 	except subprocess.CalledProcessError as exception:
 		if "restore_job" in kwargs:
 			logger.debug(f"[!] Restore command {args} exited abnormally with {exception.returncode}; please check the restore log for this device to find out what happened")
-			return None
+			return (exception.returncode, None)
 
 		output = exception.stdout or exception.stderr
 		logger.debug("[!] Command %s exited abnormally with %d; ignoring: %s", args, exception.returncode, output.strip() if output else None)
-		return output.strip() if output else None
+		# return output.strip() if output else None
+		return (exception.returncode, output.strip() if output else None) 
 	except subprocess.TimeoutExpired as exception:
 		logger.debug("[!] Command timed out after %f second(s); ignoring: %s", kwargs.get("timeout", "?"), args)
-		return None
+		# return None
+		return (kwargs.get("timeout", "?"), None)
 	except FileNotFoundError as exception:
 		# try flipping the Shell value and try again
 		if not SYSTEM_SHELLVALUE_FLIPPED:
 			SYSTEM_SHELLVALUE = not SYSTEM_SHELLVALUE
 			SYSTEM_SHELLVALUE_FLIPPED = True
-			return system(*args, **kwargs)
+			# return system(*args, **kwargs)
+			return system2(*args, **kwargs)
 		else:
 			# already tried this, crash out
 			term.print_error("* Something went wrong trying to run subprocesses on your system :(")
 			term.print_error(str(exception))
 			raise exception
+
+# STRICTLY for compatibility while remainder of codebase is updated for the new change
+def system(*args: str, **kwargs: Any) -> str | None:
+	# => (returncode: int, output: str | None)
+	return system2(*args, **kwargs)[1]
 
 # returns True if successful, False otherwise
 def download_file(url, saveto, *, binary=False, pause_on_error=True, raise_on_fail=False) -> bool:
