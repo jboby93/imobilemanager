@@ -379,6 +379,7 @@ class Device(Mapping[str, Any]):
 				logger.error("unable to retrieve info from device with UDID %s -- MDM on device is blocking communication over USB" % udid)
 				term.print_error("The MDM enrollment on device with UDID %s is blocking communication over USB" % udid)
 				term.print_warning("* This device will need put in recovery mode manually to interact with it.")
+				return None
 			# elif ...
 			else:
 				# ??
