@@ -104,7 +104,8 @@ def system2(*args, **kwargs):
 # STRICTLY for compatibility while remainder of codebase is updated for the new change
 def system(*args: str, **kwargs: Any) -> str | None:
 	# => (returncode: int, output: str | None)
-	return system2(*args, **kwargs)[1]
+	# return system2(*args, **kwargs)[1]
+	return system2(*args, **kwargs)
 
 # returns True if successful, False otherwise
 def download_file(url, saveto, *, binary=False, pause_on_error=True, raise_on_fail=False) -> bool:
@@ -122,7 +123,7 @@ def download_file(url, saveto, *, binary=False, pause_on_error=True, raise_on_fa
 
 @cache
 def _qrencode(value: str, *, return_string: bool = False) -> str | None:
-	output = system(os.path.join(IMobileDevice.LIBQRENCODE_PATH, IMobileDevice.LIBQRENCODE_EXE), "--type", "ANSI", "--margin=1", value)
+	rtn, output = system(os.path.join(IMobileDevice.LIBQRENCODE_PATH, IMobileDevice.LIBQRENCODE_EXE), "--type", "ANSI", "--margin=1", value)
 	if return_string:
 		return output
 	print(output)
@@ -376,7 +377,7 @@ class Device(Mapping[str, Any]):
 	@classmethod
 	def _get_idinfo_from_udid(cls, udid):
 		# ideally, try to do all polling for info upfront when the device is detected
-		output = _libimd("ideviceinfo", "--udid", udid, "--xml", timeout=10)
+		rtn, output = _libimd("ideviceinfo", "--udid", udid, "--xml", timeout=10)
 		# note: THIS MAY FAIL if MDM policy prevents device connection to computers (ex. FM Services iPads in Normal Boot mode)
 		# "ERROR: Could not connect to lockdownd: MC protected (-38)"
 		# TODO: test output to see if there are any errors
@@ -431,7 +432,7 @@ class Device(Mapping[str, Any]):
 
 	@classmethod
 	def from_ecid(cls, ecid) -> Device:
-		output = _libimd("irecovery", "--ecid", f"0x{ecid.upper()}", "--query").split("\n")
+		rtn, output = _libimd("irecovery", "--ecid", f"0x{ecid.upper()}", "--query").split("\n")
 		if not output:
 			logger.warning(f"* unable to retrieve info from device with ECID {ecid}")
 			return None
@@ -517,12 +518,12 @@ class Device(Mapping[str, Any]):
 		# ECID should always be present
 		# Serial will be present if iOS is not mangled
 		if self.udid:
-			in_normal = "not found" not in _libimd("ideviceinfo", "--udid", self.udid, "--xml")
+			in_normal = "not found" not in _libimd("ideviceinfo", "--udid", self.udid, "--xml")[1]
 			udid = self.udid
 		else:
 			# if it's in recovery mode, this is good
 			# do a rescan and get all connected UDIDs/ECIDs
-			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")
+			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")[1]
 			
 			if not in_recovery:
 				# else, get all normal devices and see if any other info matches (Serial, ECID)
@@ -540,7 +541,7 @@ class Device(Mapping[str, Any]):
 							in_normal = True
 
 		if not in_normal and not in_recovery:
-			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")
+			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")[1]
 
 		if in_normal:
 			# self._id = identifier
@@ -577,11 +578,11 @@ class Device(Mapping[str, Any]):
 
 	def shutdown(self):
 		term.print_warning(f"[{self.serial_number or self.ecid}] sending shutdown command to device")
-		_libimd("idevicediagnostics", "--udid", self.udid, "shutdown")
+		rtn, output = _libimd("idevicediagnostics", "--udid", self.udid, "shutdown")
 
 	def restart(self):
 		term.print_warning(f"[{self.serial_number or self.ecid}] sending restart command to device")
-		_libimd("idevicediagnostics", "--udid", self.udid, "restart")
+		rtn, output = _libimd("idevicediagnostics", "--udid", self.udid, "restart")
 
 	def prevent_erase(self):
 		self._restore_protection = True
@@ -591,7 +592,7 @@ class Device(Mapping[str, Any]):
 	def enter_recovery(self, *, wait=False, max_wait_secs=60):
 		term.print_warning(f"[{self.serial_number or self.ecid}] sending enter recovery command to device")
 		# logger.info("sending enter recovery command to device %s" % self.ecid)
-		_libimd("ideviceenterrecovery", self.udid)
+		rtn, output = _libimd("ideviceenterrecovery", self.udid)
 
 		if wait:
 			sleep(1)
@@ -622,7 +623,7 @@ class Device(Mapping[str, Any]):
 	def exit_recovery(self, *, wait=False, max_wait_secs=60):
 		term.print_warning(f"[{self.serial_number or self.ecid}] sending exit recovery command to device")
 		# logger.info("sending exit recovery command to device %s" % self.ecid)
-		_libimd("irecovery", "--ecid", self.ecid, "--normal")
+		rtn, output = _libimd("irecovery", "--ecid", self.ecid, "--normal")
 
 		if wait:
 			sleep(1)
@@ -654,37 +655,45 @@ class Device(Mapping[str, Any]):
 		logfile = normalize_path(IMobileDevice.LOG_PATH, f"update-{self.serial_number}-{strftime("%H.%M.%S")}.log")
 		ipsw = self.get_restore_ipsw_filename() or IMobileDevice.get_ipsw_path()
 
-		_libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}", "--cache-path", IMobileDevice.get_ipsw_path(), timeout=9001, restore_job=True)
+		rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}", "--cache-path", IMobileDevice.get_ipsw_path(), timeout=9001, restore_job=True)
 
-	def restore(self):
+	def restore(self, *, logfile=None) -> int | None:
 		# can always use device ECID to target for restore
 		# idevicerestore --ecid [ECID] --restore-mode --erase --no-input --plain-progress [PATH to ipsws]
 		# 
 		if self._restore_protection:
 			term.print_error("** Device %s (%s) is currently being protected from restores" % (self.model_name, self.ecid))
-			return False
+			return None
 
 		self._is_recovering = True
 		starttime = time()
 		term.print_warning(f"[{self.serial_number or self.ecid}] beginning restore process")
 
-		logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number}-{strftime("%H.%M.%S")}.log")
+		if not logfile:
+			logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number}-{strftime("%H.%M.%S")}.log")
+
 		ipsw = self.get_restore_ipsw_filename()["fullpath"] or IMobileDevice.get_ipsw_path()
 
-		_libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}", ipsw, timeout=9001, restore_job=True)
+		rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}", ipsw, timeout=9001, restore_job=True)
 
 		self._is_recovering = False
 		endtime = time()
-		logger.debug("restore completed in %d minutes" % (round(int(endtime - starttime) / 60, 2)))
-		term.print_warning(f"[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes")
-		return True
+		logger.debug("restore process completed in %d minutes" % (round(int(endtime - starttime) / 60, 2)))
+
+		if rtn == 0:
+			term.print_success(f"[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes")
+		else:
+			term.print_warning(f"[{self.serial_number or self.ecid}] restore probably FAILED in {round(int(endtime - starttime) / 60, 2)} minutes")
+			term.print_warning(f"* please check the logfile for this device: {logfile}")
+
+		return rtn
 
 	# fetching info
 	# 
 	# 
 	def get_domain_info(self, domain, refresh=False, timeout=5):
 		if domain not in self._domains or refresh:
-			output = _libimd("ideviceinfo", "--udid", self.udid, "--domain", domain, "--xml", timeout=timeout)
+			rtn, output = _libimd("ideviceinfo", "--udid", self.udid, "--domain", domain, "--xml", timeout=timeout)
 			if output is None:
 				# self._domains[domain] = {"error": "unable to retrieve domain '%s' from UDID %s" % (domain, self.udid)}
 				logger.warning("unable to retrieve domain '%s' from UDID %s" % (domain, self.udid))
@@ -695,7 +704,7 @@ class Device(Mapping[str, Any]):
 
 	def get_power_info(self, refresh=False):
 		if self._gasgauge is None or refresh:
-			output = _libimd("idevicediagnostics", "--udid", self.udid, "diagnostics", "GasGauge", timeout=5)
+			rtn, output = _libimd("idevicediagnostics", "--udid", self.udid, "diagnostics", "GasGauge", timeout=5)
 			if output is None:
 				logger.warning("unable to retrieve GasGauge from UDID %s" % self.udid)
 				self._gasgauge = None
@@ -751,7 +760,7 @@ class Device(Mapping[str, Any]):
 			return self._user_apps
 
 		# XML output reveals MUCH more data
-		output = _libimd("ideviceinstaller", "--udid", self.udid, "list", "--user")
+		rtn, output = _libimd("ideviceinstaller", "--udid", self.udid, "list", "--user")
 		if not output:
 			return []
 
@@ -770,7 +779,7 @@ class Device(Mapping[str, Any]):
 			return self._system_apps
 
 		# XML output reveals MUCH more data
-		output = _libimd("ideviceinstaller", "--udid", self.udid, "list", "--system")
+		rtn, output = _libimd("ideviceinstaller", "--udid", self.udid, "list", "--system")
 		if not output:
 			return []
 
@@ -785,9 +794,9 @@ class Device(Mapping[str, Any]):
 		return self._system_apps
 
 	def set_name(self, newname):
-		_libimd("idevicename", "--udid", self.udid, newname)
+		rtn, _ = _libimd("idevicename", "--udid", self.udid, newname)
 		# verify
-		success = (_libimd("idevicename", "--udid", self.udid).strip() == newname)
+		success = (_libimd("idevicename", "--udid", self.udid)[1].strip() == newname)
 		if success:
 			self._info["DeviceName"] = newname
 		return success
@@ -1014,7 +1023,7 @@ class Device(Mapping[str, Any]):
 	@property
 	def phone_number_2(self):
 		if "PhoneNumber2" not in self._info and "SIM2IsEmbedded" in self._info:
-			self._info["PhoneNumber2"] = _libimd("ideviceinfo", "--udid", self.udid, "--key", "PhoneNumber2")
+			self._info["PhoneNumber2"] = _libimd("ideviceinfo", "--udid", self.udid, "--key", "PhoneNumber2")[1]
 		return self["PhoneNumber2"]
 
 	@property
@@ -1409,7 +1418,7 @@ class IMobileDevice:
 				if not os.path.exists(cls.LOG_PATH):
 					os.makedirs(cls.LOG_PATH)
 
-				use_which = (which := system("which")) is not None and (which == "" or which.startswith("usage:"))
+				use_which = (which := system("which")[1]) is not None and (which == "" or which.startswith("usage:"))
 				use_which = True
 				cls.LIBIMOBILEDEVICE_PATH = "/usr/local/bin/"
 				cls.LIBQRENCODE_PATH = "/usr/local/bin/"
@@ -1419,8 +1428,8 @@ class IMobileDevice:
 				libmobiledevice_url = cls.LIBIMOBILEDEVICE_MACOS.replace(":" + libmobiledevice_hash, "")
 
 				installsh = urlretrieve(libmobiledevice_url, os.path.join(cls.PROGRAM_PATH, "limd-build-macos.sh"))
-				libqrencode_path = cast(str, system("which", "qrencode"))
-				if str(system("which", "irecovery")) in ["", "irecovery not found"]:
+				libqrencode_path = cast(str, system("which", "qrencode")[1])
+				if str(system("which", "irecovery")[1]) in ["", "irecovery not found"]:
 					installsh_ex = installsh[0]
 					# with open(installsh, "rb") as file:
 					# 	print(str(file_digest(file, "sha256").hexdigest()))
@@ -1429,13 +1438,13 @@ class IMobileDevice:
 					system("bash", installsh_ex, interactive=True)
 
 				if use_which:
-					cls.LIBIMOBILEDEVICE_PATH = os.path.dirname(str(system("which", "irecovery")))
+					cls.LIBIMOBILEDEVICE_PATH = os.path.dirname(str(system("which", "irecovery")[1]))
 
-				if system("which", "qrencode") == "qrencode not found" if use_which else not os.path.isfile(normalize_path(cls.LIBQRENCODE_PATH, "qrencode")):
+				if system("which", "qrencode")[1] == "qrencode not found" if use_which else not os.path.isfile(normalize_path(cls.LIBQRENCODE_PATH, "qrencode")):
 					term.print_msg("  Downloading libqrencode...")
 					system("brew", "install", "libqrencode")
 				if use_which:
-					cls.LIBQRENCODE_PATH = "/".join(str(system("which", "qrencode")).split("/")[:-1])
+					cls.LIBQRENCODE_PATH = "/".join(str(system("which", "qrencode")[1]).split("/")[:-1])
 			case "Linux":
 				if not os.path.exists(cls.PROGRAM_PATH):
 					os.makedirs(cls.PROGRAM_PATH)
@@ -1486,7 +1495,7 @@ class IMobileDevice:
 	@classmethod
 	def get_connected_ids(cls):
 		term.print_msg("Searching for devices...")
-		connected = _libimd("idevice_id", "--list")
+		rtn, connected = _libimd("idevice_id", "--list")
 		if not connected:
 			return []
 		if connected == "ERROR: Unable to retrieve device list!" and cls.PLATFORM == "Windows":
@@ -1534,9 +1543,9 @@ class IMobileDevice:
 		match cls.PLATFORM:
 			case "Windows":
 				# Windows only (for now)
-				output = _libimd(*cls.CMD_DEVMGR_FIND_ECIDS)
+				rtn, output = _libimd(*cls.CMD_DEVMGR_FIND_ECIDS)
 			case "Darwin":
-				output = _libimd(*cls.CMD_IOREG_FIND_ECIDS)
+				rtn, output = _libimd(*cls.CMD_IOREG_FIND_ECIDS)
 			case "Linux":
 				pass
 
@@ -1593,8 +1602,11 @@ class IMobileDevice:
 
 	@classmethod
 	def get_info_for(cls, devid):
-		plist = ElementTree.XML(output := _libimd("ideviceinfo", "--udid", devid, "--xml"))
-		return decode_plist(plist)
+		if (output := _libimd("ideviceinfo", "--udid", devid, "--xml")) and output[1]:
+			plist = ElementTree.XML(output[1])
+			return decode_plist(plist)
+		else:
+			return {}
 
 	# in: List of Devices
 	# output: mapping of DeviceModel (iPhoneX,Y) => the correct firmware file to restore this device, or None if it needs to be downloaded
@@ -1680,8 +1692,6 @@ class IMDRestoreManager:
 			if self.jobs[ecid][0].running():
 				c += 1
 		return c
-	
-	
 
 	# unneeded; jobs are started when submitted if there are available workers to take them
 	# 
@@ -1697,13 +1707,15 @@ class IMDRestoreManager:
 
 	# class for jobs? or a simple function with DeviceID arg?
 	class Job:
-		def __init__(self, deviceid: DeviceID):
+		def __init__(self, deviceid: DeviceID, *, erase_restore=True):
 			self._device_id = deviceid
 			self._device = None
 
 			self._running = False
 			self._result = None
 			# ...
+			self._logfile = None
+			self._returncode = None
 		
 		def run(self, device: Device):
 			self._device = device
@@ -1718,9 +1730,13 @@ class IMDRestoreManager:
 				else:
 					# hell nah
 					term.print_error(f"* Unable to put device {device.identifier} in recovery mode; try doing it manually and attempt the restore again")
+					self._returncode = -1
 					return False
+
+			self._logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{device.serial_number}-{strftime("%H.%M.%S")}.log")
+
 			# begin restore process
-			device.restore()
+			self._returncode = device.restore(logfile=self._logfile)
 
 			self._running = False
 			return device
@@ -1729,7 +1745,13 @@ class IMDRestoreManager:
 			if future.cancelled():
 				term.print_error("* Restore cancelled for %s; this device may be in an unusable state!" % self.device_id)
 			elif future.done():
-				term.print_labelled("* Restore finished", self.device_id, color="green")
+				if self.returncode == 0:
+					term.print_labelled("* Restore finished", self.device_id, color="green")
+				else:
+					term.print_labelled("* Restore FAILED", self.device_id, color="yellow")
+					term.print("Please check the logfile for this restore process to see what went wrong:")
+					term.print("  " + self._logfile)
+
 				try:
 					self._result = future.result(timeout=5)
 				except TimeoutError as te:
@@ -1750,6 +1772,15 @@ class IMDRestoreManager:
 		@property
 		def result(self):
 			return self._result
+
+		@property
+		def returncode(self):
+			return self._returncode
+		
+		@property
+		def logfile(self):
+			return self._logfile
+		
 	# end class IMDRestoreManager.Job
 # end class IMDRestoreManager
 
@@ -2538,17 +2569,18 @@ class IMDApp:
 
 		instructions = [
 			"Select a job for more info or:",
-			"R: refresh list      C: cancel job",
-			"D: restart job       P: purge finished jobs",
-			"X,Q,BACKSPACE: go back",
-			"============================================"
+			"R: refresh list        C: cancel job",
+			"D: restart job         P: purge finished jobs",
+			"L: view job logfile    X,Q,BACKSPACE: go back",
+			"==============================================="
 		]
 
 		hotkeys = {
 			"r": "refresh",
 			"c": "cancel",
 			"d": "restart",
-			"p": "purge-finished"
+			"p": "purge-finished",
+			"l": "view-log"
 		}
 
 		quit_keys = ["x", "q", "backspace"]
@@ -2627,13 +2659,19 @@ class IMDApp:
 				device = job[2].device
 
 				term.screen(f"Restore job for ECID: {selection}")
-				term.print_labelled("  Device", device.model_name or device.product_type, color="green")
-				term.print_labelled("      SN", device.serial_number)
-				term.print_labelled("    ECID", device.ecid)
-				term.print_labelled("    UDID", device.udid)
+				term.print_labelled("   Device", device.model_name or device.product_type, color="green")
+				term.print_labelled("       SN", device.serial_number)
+				term.print_labelled("     ECID", device.ecid)
+				term.print_labelled("     UDID", device.udid)
 				print()
-				term.print_labelled("  Status", "running" if job[0].running() else ("cancelled" if job[0].cancelled() else ("done" if job[0].done() else "not active")))
+				term.print_labelled("   Status", "running" if job[0].running() else ("cancelled" if job[0].cancelled() else ("done" if job[0].done() else "not active")))
+				term.print_labelled("      Log", job[2].logfile)
 				print()
+				if job[0].done():
+					term.print_labelled(" Exitcode", job[2].returncode)
+					term.print_labelled("   Result", "success" if job[2].returncode == 0 else "error")
+					print()
+
 				term.pause()
 			else:
 				term.print_warning(f"* unknown response type: {selection}")
