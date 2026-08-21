@@ -496,11 +496,13 @@ class Device(Mapping[str, Any]):
 		# much more efficient way:
 		in_normal = False
 		in_recovery = False
+		udid = None
 		# if the UDID is present, search using that to check if it's in normal mode
 		# ECID should always be present
 		# Serial will be present if iOS is not mangled
 		if self.udid:
 			in_normal = "not found" not in _libimd("ideviceinfo", "--udid", self.udid, "--xml")
+			udid = self.udid
 		else:
 			# if it's in recovery mode, this is good
 			# do a rescan and get all connected UDIDs/ECIDs
@@ -513,10 +515,12 @@ class Device(Mapping[str, Any]):
 				if self.serial_number:
 					for dev in ndevs:
 						if dev.serial_number == self.serial_number:
+							udid = dev.udid
 							in_normal = True
 				else:
 					for dev in ndevs:
 						if dev.ecid == self.ecid:
+							udid = dev.udid
 							in_normal = True
 
 		if not in_normal and not in_recovery:
@@ -531,7 +535,7 @@ class Device(Mapping[str, Any]):
 
 			# refresh any available stats, as the boot-mode may have changed
 			if refresh or not was_booted_normally:
-				plist = Device._get_idinfo_from_udid(self.udid)
+				plist = Device._get_idinfo_from_udid(udid)
 				plist["BootMode"] = "Normal"
 				self._info = plist
 
