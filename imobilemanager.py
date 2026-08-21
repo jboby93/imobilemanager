@@ -432,12 +432,14 @@ class Device(Mapping[str, Any]):
 
 	@classmethod
 	def from_ecid(cls, ecid) -> Device:
-		rtn, output = _libimd("irecovery", "--ecid", f"0x{ecid.upper()}", "--query").split("\n")
+		rtn, output = _libimd("irecovery", "--ecid", f"0x{ecid.upper()}", "--query")
 		if not output:
 			logger.warning(f"* unable to retrieve info from device with ECID {ecid}")
 			return None
 
+		output = output.split("\n")
 		info = {prop.split(": ")[0]: prop.split(": ")[1] for prop in output}
+		
 		# print(info)
 
 		# "ProductType": info["PRODUCT"] => "Model Name"
