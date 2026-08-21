@@ -3,7 +3,6 @@
 __pycache__/
 logs/
 *.log
-imbrowser.py
 chipid-dict.json
 device_names.json
 idevice_models.json

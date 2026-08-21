@@ -390,8 +390,12 @@ class Device(Mapping[str, Any]):
 		return decode_plist(ElementTree.XML(output))
 
 	@classmethod
-	def from_udid(cls, udid) -> Device:
+	def from_udid(cls, udid) -> Device | None:
 		plist = cls._get_idinfo_from_udid(udid)
+		if not plist:
+			logger.warning(f"* unable to retrieve info from device with UDID {udid}")
+			return None
+
 		plist["BootMode"] = "Normal"
 
 		dev = Device(plist)
@@ -412,12 +416,16 @@ class Device(Mapping[str, Any]):
 	@classmethod
 	def from_ecid(cls, ecid) -> Device:
 		output = _libimd("irecovery", "--ecid", f"0x{ecid.upper()}", "--query").split("\n")
+		if not output:
+			logger.warning(f"* unable to retrieve info from device with ECID {ecid}")
+			return None
+
 		info = {prop.split(": ")[0]: prop.split(": ")[1] for prop in output}
 		# print(info)
 
 		# "ProductType": info["PRODUCT"] => "Model Name"
 		device_info = {
-			"SerialNumber": sn if (sn := info[Attribute.Recovery.SERIAL_NUMBER]) != "N/A" else None,
+			"SerialNumber": sn if (Attribute.Recovery.SERIAL_NUMBER in info) and (sn := info[Attribute.Recovery.SERIAL_NUMBER]) != "N/A" else None,
 			"DieID": int(info[Attribute.Recovery.ECID], 16),
 			"ChipID": int(info[Attribute.Recovery.CHIP_ID], 16),
 			"ProductType": (product_type := info[Attribute.Recovery.PRODUCT_TYPE]),
@@ -484,10 +492,34 @@ class Device(Mapping[str, Any]):
 		logger.debug("pinging device with id %s" % self.identifier)
 
 		was_booted_normally = (self.bootmode == "normal")
+
 		# much more efficient way:
-		in_normal = "not found" not in _libimd("ideviceinfo", "--udid", self.udid, "--xml")
+		in_normal = False
 		in_recovery = False
-		if not in_normal:
+		# if the UDID is present, search using that to check if it's in normal mode
+		# ECID should always be present
+		# Serial will be present if iOS is not mangled
+		if self.udid:
+			in_normal = "not found" not in _libimd("ideviceinfo", "--udid", self.udid, "--xml")
+		else:
+			# if it's in recovery mode, this is good
+			# do a rescan and get all connected UDIDs/ECIDs
+			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")
+			
+			if not in_recovery:
+				# else, get all normal devices and see if any other info matches (Serial, ECID)
+				ndevs = IMobileDevice.get_connected_devices()
+				# do we have a serial?
+				if self.serial_number:
+					for dev in ndevs:
+						if dev.serial_number == self.serial_number:
+							in_normal = True
+				else:
+					for dev in ndevs:
+						if dev.ecid == self.ecid:
+							in_normal = True
+
+		if not in_normal and not in_recovery:
 			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")
 
 		if in_normal:
@@ -2459,7 +2491,8 @@ class IMDApp:
 			"What's an IPSW?",
 			"Restore machine go brrr",
 			"iOS go bye bye",
-			"Time to eat my Apples!"
+			"Time to eat your Apples!",
+			"Glory in the name of Jobs"
 		])[random.randint(0, len(phrases)-1)]
 		term.print_labelled("To proceed, type the following phrase", verification_can)
 
@@ -2523,7 +2556,7 @@ class IMDApp:
 				term.print_msg("No restore jobs are in the queue.")
 				term.pause()
 				continue
-				
+
 			selection = term.menu("Current jobs in restore queue:", list(cls.restorer.jobs.keys()), title=title, initial_index=initial_index, on_print_option=print_option, instructions=instructions, hotkeys=hotkeys, quit_keys=["x", "q", "backspace"], clear_on_finish=False)
 			if not selection:
 				running = False
