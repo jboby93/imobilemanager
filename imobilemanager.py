@@ -1909,7 +1909,7 @@ class IMDApp:
 		if device.udid:
 			qrcodes["udid"] = (f"UDID: {device.udid}", _qrencode(device.udid, return_string=True))
 		if device.linq_im_code:
-			qrcodes["linq_im_code"] = (f"IM Code: {device.linq_im_code}", _qrencode(device.linq_im_code, return_string=True))
+			qrcodes["linq_im_code"] = (f"LINQ Item Code: {device.linq_im_code}", _qrencode(device.linq_im_code, return_string=True))
 
 		# open a flip-book type interface that users can scroll through the available codes with
 		running = True
@@ -2596,10 +2596,11 @@ class IMDApp:
 			# (Future, DeviceID, IMDRestoreManager.Jobs)
 			device_id = job[1]
 
-			if not (option := device_id.serial):
-				option = device_id.ecid
+			option = job[2].device.model_name
+			if not device_id.serial:
+				option = f"{option} (ECID: {device_id.ecid})"
 			else:
-				option = f"{option} ({device_id.ecid})"
+				option = f"{option} (S/N: {device_id.serial})"
 
 			status = "not active"
 			if job[0].running():
