@@ -439,7 +439,7 @@ class Device(Mapping[str, Any]):
 
 		output = output.split("\n")
 		info = {prop.split(": ")[0]: prop.split(": ")[1] for prop in output}
-		
+
 		# print(info)
 
 		# "ProductType": info["PRODUCT"] => "Model Name"
@@ -2601,7 +2601,18 @@ class IMDApp:
 			else:
 				option = f"{option} ({device_id.ecid})"
 
-			option = f"{option} - {"running" if job[0].running() else ("cancelled" if job[0].cancelled() else ("done" if job[0].done() else "not active"))}"
+			status = "not active"
+			if job[0].running():
+				status = "running"
+			elif job[0].cancelled():
+				status = "cancelled"
+			elif job[0].done():
+				if job[2].returncode == 0:
+					status = "done [success]"
+				else:
+					status = f"done [failed: {job[2].returncode}]"
+
+			option = f"{option} - {status}"
 
 			if highlighted:
 				term.print_highlighted(option)
