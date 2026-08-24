@@ -1165,7 +1165,7 @@ class Terminal:
 	# (help.txt format should be like that used on asset_intake_v3)
 	# 
 	@classmethod
-	def textreader(cls, title, filename, *, background_color=None, text_color=None, titlebar_bg="gray", titlebar_fg="black", allow_ctrlc=True, clear_on_finish=True, clear_on_start=True, raise_on_file_error=False, replacements={}, gotosection=0, theme=None, use_colors=True):
+	def textreader(cls, title, filename, *, background_color=None, text_color=None, titlebar_bg="gray", titlebar_fg="black", allow_ctrlc=True, clear_on_finish=True, clear_on_start=True, raise_on_file_error=False, replacements={}, gotosection=0, theme=None, use_colors=True, use_pageupdown=True, use_homeend_scrolling=False):
 		running = True
 
 		if not theme:
@@ -1196,7 +1196,12 @@ class Terminal:
 			termwidth, termheight = shutil.get_terminal_size((80, 20)) 
 
 			cls.print("LEFT/RIGHT - change section | UP/DOWN - scroll on page", color="green", bgcolor=background_color, word_wrap=False)
-			cls.print("HOME - go to Contents", color="green", bgcolor=background_color, word_wrap=False)
+			if not use_homeend_scrolling:
+				cls.print("HOME - go to Beginning of document", color="green", bgcolor=background_color, word_wrap=False)
+			else:
+				pass
+			if use_pageupdown:
+				pass
 			cls.print("Press Q or CTRL+C to return", color="green", bgcolor=background_color, word_wrap=False)
 			cls.print(("=" * (termwidth - 2)), color=text_color, bgcolor=background_color, word_wrap=False)
 
@@ -1277,7 +1282,7 @@ class Terminal:
 				key = cls.get_keypress()
 				# print(key)
 				match key:
-					case "q" | "esc":
+					case "q" | "esc" | "backspace":
 						handled = True
 						running = False
 					case "ctrl-c":
@@ -1310,8 +1315,25 @@ class Terminal:
 							lineindex = len(helpcontent) - maxlines
 					case "home":
 						handled = True
-						section = 0
 						lineindex = 0
+						if not use_homeend_scrolling:
+							section = 0
+					case "end":
+						if use_homeend_scrolling:
+							handled = True
+							lineindex = len(helpcontent) - maxlines
+					case "pgup":
+						if use_pageupdown:
+							handled = True
+							lineindex -= maxlines
+							if lineindex < 0:
+								lineindex = 0
+					case "pgdown":
+						if use_pageupdown:
+							handled = True
+							lineindex += maxlines
+							if lineindex + maxlines > len(helpcontent):
+								lineindex = len(helpcontent) - maxlines
 			# end while (key input loop)
 		# end while (text viewer loop)
 	# end textreader()
