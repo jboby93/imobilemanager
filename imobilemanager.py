@@ -2545,7 +2545,7 @@ class IMDApp:
 		term.print_msg("Please review the output above to make sure that this is what you want.")
 		term.print_warning("If you proceed, THESE DEVICES WILL BE ERASED AND RESTORED.")
 		print()
-		verification_can = (phrases := [
+		verification_can = random.choice([
 			"Lobotomize me, captain!",
 			"Yes, do as I say!",
 			"What's an IPSW?",
@@ -2553,7 +2553,7 @@ class IMDApp:
 			"iOS go bye bye",
 			"Time to eat your Apples!",
 			"Glory in the name of Jobs"
-		])[random.randint(0, len(phrases)-1)]
+		])
 		term.print_labelled("To proceed, type the following phrase", verification_can)
 
 		if term.input("> ").strip() == verification_can.strip():
