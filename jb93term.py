@@ -1334,6 +1334,19 @@ class Terminal:
 							lineindex += maxlines
 							if lineindex + maxlines > len(helpcontent):
 								lineindex = len(helpcontent) - maxlines
+					case "+": # macOS-compatible alternative for PgUp
+						if use_pageupdown and platform.system() == "Darwin":
+							handled = True
+							lineindex -= maxlines
+							if lineindex < 0:
+								lineindex = 0
+					case "+":# macOS-compatible alternative for PgDown
+						if use_pageupdown and platform.system() == "Darwin":
+							handled = True
+							lineindex += maxlines
+							if lineindex + maxlines > len(helpcontent):
+								lineindex = len(helpcontent) - maxlines
+
 			# end while (key input loop)
 		# end while (text viewer loop)
 	# end textreader()
