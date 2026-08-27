@@ -1718,12 +1718,15 @@ class IMDRestoreManager:
 			# ...
 			self._logfile = None
 			self._returncode = None
+			self._starttime = None
+			self._endtime = None
 		
 		def run(self, device: Device):
 			self._device = device
 			self._running = True
 
 			term.print_warning("* Beginning restore operation for device with %s" % device.identifier)
+			self._starttime = time()
 
 			if device.bootmode == "normal":
 				if (entered_recovery := device.enter_recovery(wait=True)):
@@ -1741,6 +1744,8 @@ class IMDRestoreManager:
 			self._returncode = device.restore(logfile=self._logfile)
 
 			self._running = False
+			self._endtime = time()
+
 			return device
 
 		def on_completed(self, future):
@@ -1782,6 +1787,24 @@ class IMDRestoreManager:
 		@property
 		def logfile(self):
 			return self._logfile
+
+		@property
+		def starttime(self):
+			return self._starttime
+
+		@property
+		def endtime(self):
+			return self._endtime
+
+		@property
+		def duration(self):
+			if not self.starttime or not self.endtime:
+				return None
+
+			return f"{round(int(endtime - starttime) / 60, 2)} minutes"
+		
+		
+		
 		
 	# end class IMDRestoreManager.Job
 # end class IMDRestoreManager
@@ -2685,6 +2708,8 @@ class IMDApp:
 				if job[0].done():
 					term.print_labelled(" Exitcode", job[2].returncode)
 					term.print_labelled("   Result", "success" if job[2].returncode == 0 else "error")
+					term.print_labelled(" Duration", job[2].duration)
+					
 					print()
 
 				term.pause()
@@ -2786,7 +2811,7 @@ class IMDApp:
 						case "view":
 							cls.view_devices(rescan=False)
 						case "help":
-							term.textreader(f"{APP_NAME} - Help / About", "in-app-help.txt", text_color="white", replacements={"app_name": APP_NAME})
+							term.textreader(f"{APP_NAME} - Help / About", "in-app-help.txt", replacements={"app_name": APP_NAME})
 			else:
 				running = False
 
