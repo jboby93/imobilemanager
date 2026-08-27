@@ -659,7 +659,7 @@ class Device(Mapping[str, Any]):
 
 		rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}", "--cache-path", IMobileDevice.get_ipsw_path(), timeout=9001, restore_job=True)
 
-	def restore(self, *, logfile=None) -> int | None:
+	def restore(self, *, logfile=None, suppress_msgs=False) -> int | None:
 		# can always use device ECID to target for restore
 		# idevicerestore --ecid [ECID] --restore-mode --erase --no-input --plain-progress [PATH to ipsws]
 		# 
@@ -669,7 +669,8 @@ class Device(Mapping[str, Any]):
 
 		self._is_recovering = True
 		starttime = time()
-		term.print_warning(f"[{self.serial_number or self.ecid}] beginning restore process")
+		if not suppress_msgs:
+			term.print_warning(f"[{self.serial_number or self.ecid}] beginning restore process")
 
 		if not logfile:
 			logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number}-{strftime("%H.%M.%S")}.log")
@@ -685,7 +686,7 @@ class Device(Mapping[str, Any]):
 		if rtn == 0:
 			term.print_success(f"[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes")
 		else:
-			term.print_warning(f"[{self.serial_number or self.ecid}] restore probably FAILED in {round(int(endtime - starttime) / 60, 2)} minutes")
+			term.print_warning(f"[{self.serial_number or self.ecid}] restore FAILED in {round(int(endtime - starttime) / 60, 2)} minutes")
 			term.print_warning(f"* please check the logfile for this device: {logfile}")
 
 		return rtn
@@ -2709,7 +2710,7 @@ class IMDApp:
 					term.print_labelled(" Exitcode", job[2].returncode)
 					term.print_labelled("   Result", "success" if job[2].returncode == 0 else "error")
 					term.print_labelled(" Duration", job[2].duration)
-					
+
 					print()
 
 				term.pause()
