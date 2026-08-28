@@ -21,7 +21,7 @@ from hashlib import file_digest
 from itertools import batched, chain, zip_longest
 from pprint import pformat
 from shutil import copyfileobj
-from time import sleep, strftime, time
+from time import sleep, strftime, time, localtime
 from typing import cast, Any, Hashable
 from urllib.request import urlretrieve
 from xml.etree import ElementTree
@@ -1742,7 +1742,7 @@ class IMDRestoreManager:
 			self._logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{device.serial_number}-{strftime("%H.%M.%S")}.log")
 
 			# begin restore process
-			self._returncode = device.restore(logfile=self._logfile)
+			self._returncode = device.restore(logfile=self._logfile, suppress_msgs=True)
 
 			self._running = False
 			self._endtime = time()
@@ -1802,11 +1802,7 @@ class IMDRestoreManager:
 			if not self.starttime or not self.endtime:
 				return None
 
-			return f"{round(int(endtime - starttime) / 60, 2)} minutes"
-		
-		
-		
-		
+			return f"{round(int(self.endtime - self.starttime) / 60, 2)} minutes"
 	# end class IMDRestoreManager.Job
 # end class IMDRestoreManager
 
@@ -2705,10 +2701,14 @@ class IMDApp:
 				print()
 				term.print_labelled("   Status", "running" if job[0].running() else ("cancelled" if job[0].cancelled() else ("done" if job[0].done() else "not active")))
 				term.print_labelled("      Log", job[2].logfile)
+				if job[2].starttime:
+					term.print_labelled("  Started", strftime("%D %I:%M:%S %p", localtime(job[2].starttime)))
+
 				print()
 				if job[0].done():
 					term.print_labelled(" Exitcode", job[2].returncode)
 					term.print_labelled("   Result", "success" if job[2].returncode == 0 else "error")
+					term.print_labelled(" Finished", strftime("%D %I:%M:%S %p", localtime(job[2].endtime)))
 					term.print_labelled(" Duration", job[2].duration)
 
 					print()
