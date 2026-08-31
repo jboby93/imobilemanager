@@ -382,8 +382,8 @@ class Device(Mapping[str, Any]):
 		# "ERROR: Could not connect to lockdownd: MC protected (-38)"
 		# TODO: test output to see if there are any errors
 		if not output:
-			logger.error("unable to retrieve info from device with UDID %s" % udid)
-			term.print_error("unable to retrieve info from device with UDID %s" % udid)
+			logger.error(f"unable to retrieve info from device with UDID {udid} (ideviceinfo: error {rtn})")
+			term.print_error(f"unable to retrieve info from device with UDID {udid} (ideviceinfo: error {rtn})")
 			return None
 
 		if "ERROR: " in output:
@@ -401,7 +401,9 @@ class Device(Mapping[str, Any]):
 				# ??
 				# TODO: check if a recovery job has been started on this device (add a flag for this)
 				logger.error("unable to retrieve info from device with UDID %s" % udid)
+				logger.error(f"ideviceinfo error {rtn}: {output}")
 				term.print_error("unable to retrieve info from device with UDID %s - make sure it is unlocked or in recovery mode" % udid)
+				term.print_error(f"  (error {rtn}: {output})")
 				return None
 
 		return decode_plist(ElementTree.XML(output))
@@ -553,8 +555,12 @@ class Device(Mapping[str, Any]):
 			self._info["BootMode"] = "normal"
 
 			# refresh any available stats, as the boot-mode may have changed
+			
 			if refresh or not was_booted_normally:
 				plist = Device._get_idinfo_from_udid(udid)
+				if not plist:
+					return False
+						
 				plist["BootMode"] = "Normal"
 				self._info = plist
 
