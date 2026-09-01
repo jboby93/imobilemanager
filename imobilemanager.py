@@ -972,13 +972,13 @@ class Device(Mapping[str, Any]):
 	@property
 	def is_ipod(self):
 		return "iPod" in self.product_type
+		
 	@property
 	def osname(self):
-		if (version := self["ProductVersion"]):
-			if int(version[0]) < 4:
-				return "iPhone OS"
-
 		if self.is_iphone or self.is_ipod:
+			if (version := self["ProductVersion"]):
+				if int(version.split(".")[0]) < 4:
+					return "iPhone OS"
 			return "iOS"
 		elif self.is_ipad:
 			return "iPadOS"

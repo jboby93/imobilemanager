@@ -169,7 +169,7 @@ class IPSW:
 		def osname(f_parts):
 			f = "_".join(f_parts)
 			f_version = f_parts[-3]
-			ios_name = "iPhone OS" if int(f_version[0]) < 4 else "iOS"
+			ios_name = "iPhone OS" if int(f_version.split(".")[0]) < 4 else "iOS"
 
 			if "iPhone" in f or "iPod" in f:
 				return ios_name
@@ -666,7 +666,7 @@ class IPSWApp:
 			elif "iPad" in d["device"]:
 				osname = "iPadOS"
 			elif "iPhone" in d["device"] or "iPod" in d["device"]:
-				if int(d["firmware"]["version"][0]) < 4:
+				if int(d["firmware"]["version"].split(".")[0]) < 4:
 					osname = "iPhone OS"
 				else:
 					osname = "iOS"
