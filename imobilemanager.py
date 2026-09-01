@@ -242,6 +242,27 @@ class DeviceID(Hashable):
 		# user can search for the model
 		# 
 		return None
+
+	@classmethod
+	def store_model_record(cls, devinfo):
+		if (modelnumber := devinfo["BaseModelNumber"]) and devinfo["ModelName"] and devinfo["ModelStorage"] and devinfo["ModelColor"] and devinfo["ModelReleaseDate"]:
+			IMobileDevice.models_dict[modelnumber] = (model_record := [
+				devinfo["ProductType"],
+				devinfo["ModelName"],
+				devinfo["ModelStorage"],
+				devinfo["ModelColor"],
+				devinfo["ModelReleaseDate"]
+			])
+
+			try:
+				with open(IMobileDevice.MODELS_DICT_FILE, "w") as f:
+					f.write(json.dumps(IMobileDevice.models_dict, indent=4))
+				logger.info(f"appended new device model record: {modelnumber} => {model_record}")
+				return True
+			except Exception as e:
+				term.print_error(f"Couldn't save {IMobileDevice.MODELS_DICT_FILE} - {str(e)}")
+				return False
+		return False
 # end class DeviceID
 
 # stores Device info and interaction/management functions
@@ -350,21 +371,45 @@ class Device(Mapping[str, Any]):
 
 			narrowed_matches = {key: possible_matches[key] for key in possible_matches if possible_matches[key][3] == color_name}
 			# print(narrowed_matches)
-			match_key = list(narrowed_matches.keys())[0]
-			match = narrowed_matches[match_key]
+			if len(narrowed_matches) == 0:
+				# collect information manually
+				term.screen(f"Identify device: {self.product_type} - {self.serial_number}")
+				term.print_warning("This device can't be fully identified.  Please enter the needed information for this device and it will be stored for future use.")
+				print()
+				term.print_msg("Info reported from device:")
+				term.print_labelled("  ModelNumber", self.model_number or "missing?")
+				term.print_labelled("  DeviceClass", self.device_class or "missing?")
+				term.print_labelled("  ProductType", self.product_type)
+				term.print_labelled("  ProductName", product_name or "unknown")
+				# if we are here, chances are storage info may have been pulled to guesstimate disk size
+				if (storage := self.get_storage_info()):
+					term.print_labelled("TotalDiskCapacity", f"~ {round(storage["TotalDiskCapacity"] / 1024 / 1024 / 1024, 2)} GB")
+				print()
 
-			self._info["BaseModelNumber"] = match_key
-			self._info["ModelName"] = match[1]
-			self._info["ModelStorage"] = match[2]
-			self._info["ModelColor"] = match[3]
-			self._info["ModelReleaseDate"] = match[4] or None
+				term.print_warning("* Press CTRL+C to cancel")
+				self._info["BaseModelNumber"] = self.model_number or term.input("Model number (5-char):", allow_ctrlc=True)
+				self._info["ModelName"] = term.input("Model name:", product_name, allow_ctrlc=True)
+				self._info["ModelStorage"] = term.input("Storage size: ", allow_ctrlc=True)
+				self._info["ModelColor"] = term.input("Device color: ", allow_ctrlc=True)
+				self._info["ModelReleaseDate"] = term.input("Release date: ", allow_ctrlc=True)
 
-			if not self.model_number:
-				logger.warning("assuming model number like %s" % match_key)
-				self._info["ModelNumber"] = match_key
+				return DeviceID.store_model_record(self._info)
+			else:
+				match_key = list(narrowed_matches.keys())[0]
+				match = narrowed_matches[match_key]
 
-			logger.info("* device with ECID %s is (assumed to be) a(n) %s" % (self.ecid, match[1]))
-			return True
+				self._info["BaseModelNumber"] = match_key
+				self._info["ModelName"] = match[1]
+				self._info["ModelStorage"] = match[2]
+				self._info["ModelColor"] = match[3]
+				self._info["ModelReleaseDate"] = match[4] or None
+
+				if not self.model_number:
+					logger.warning("assuming model number like %s" % match_key)
+					self._info["ModelNumber"] = match_key
+
+				logger.info("* device with ECID %s is (assumed to be) a(n) %s" % (self.ecid, match[1]))
+				return True
 		else:
 			for s in [
 				"** unable to determine exact device model:",
@@ -626,7 +671,6 @@ class Device(Mapping[str, Any]):
 			# command was sent and no wait is requested
 			# logger.info("command sent")
 			return True
-
 
 	def exit_recovery(self, *, wait=False, max_wait_secs=60):
 		term.print_warning(f"[{self.serial_number or self.ecid}] sending exit recovery command to device")
