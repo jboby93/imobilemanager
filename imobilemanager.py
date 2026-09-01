@@ -871,7 +871,15 @@ class Device(Mapping[str, Any]):
 
 	@property
 	def chipid(self) -> str:
-		return hex(self[Attribute.CHIP_ID])	
+		if Attribute.CHIP_ID in self:
+			return hex(self[Attribute.CHIP_ID])	
+		else:
+			if Attribute.HARDWARE_PLATFORM in self:
+				hp = self[Attribute.HARDWARE_PLATFORM]
+				if hp == "s5l8930x":
+					return "Apple A4"
+				else:
+					return hp
 
 	@property
 	def chip(self) -> ChipID:
@@ -951,18 +959,26 @@ class Device(Mapping[str, Any]):
 	@property
 	def is_iphone(self):
 		return "iPhone" in self["ModelName"]
+		return "iPhone" in self.product_type
 
 	@property
 	def is_ipad(self):
-		return "iPad" in self["ModelName"]
+		return "iPad" in self.product_type
 
 	@property
 	def is_mac(self):
-		return "Mac" in self["ModelName"]
+		return "Mac" in self.product_type
 
 	@property
+	def is_ipod(self):
+		return "iPod" in self.product_type
+	@property
 	def osname(self):
-		if self.is_iphone:
+		if (version := self["ProductVersion"]):
+			if int(version[0]) < 4:
+				return "iPhone OS"
+
+		if self.is_iphone or self.is_ipod:
 			return "iOS"
 		elif self.is_ipad:
 			return "iPadOS"
@@ -1148,12 +1164,18 @@ class Device(Mapping[str, Any]):
 	@property
 	def icloud_account(self):
 		# TODO: subkeys may not exist!!
+		if "NonVolatileRAM" not in self._info:
+			return "(n/a)"
+
 		if "fm-account-masked" not in self["NonVolatileRAM"]:
 			return "(n/a)"
 		return self["NonVolatileRAM"]["fm-account-masked"]
 
 	@property
 	def icloud_locked(self):
+		if "NonVolatileRAM" not in self._info:
+			return "(n/a)"
+
 		if "fm-activation-locked" in self["NonVolatileRAM"]:
 			return self["NonVolatileRAM"]["fm-activation-locked"].upper() == "YES"
 		return None
@@ -2080,7 +2102,7 @@ class IMDApp:
 		if battery:
 			bat_status = "charging" if battery["BatteryIsCharging"] else ("plugged in" if battery["ExternalConnected"] else "discharging")
 			term.print_labelled(f"   Battery", f"{battery["BatteryCurrentCapacity"]}% ({bat_status})", color="green")
-			if battery["GasGaugeCapability"]:
+			if "GasGaugeCapability" in battery:
 				term.print_labelled("    Cycles", device.get_power_info()["CycleCount"])
 		else:
 			term.print_labelled(f"   Battery", "none", color="green")

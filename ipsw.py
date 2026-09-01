@@ -12,7 +12,7 @@ from urllib.request import urlopen
 from jb93term import Terminal as term
 
 APP_NAME = "IPSWApp"
-APP_VERSION = "v3.1"
+APP_VERSION = "v3.2"
 APP_DATE = datetime.fromtimestamp(os.path.getmtime(sys.argv[0])).strftime("%Y-%m-%d %H:%M:%S")
 
 # make sure pycurl is installed
@@ -166,6 +166,20 @@ class IPSW:
 		# filename => {path: , version: , deviceid or groupid: , filesize, moddate}
 		detected_files = {}
 
+		def osname(f_parts):
+			f = "_".join(f_parts)
+			f_version = f_parts[-3]
+			ios_name = "iPhone OS" if int(f_version[0]) < 4 else "iOS"
+
+			if "iPhone" in f or "iPod" in f:
+				return ios_name
+			elif "iPad" in f:
+				return "iPadOS"
+			elif "Mac" in f:
+				return "macOS"
+			else:
+				return "other Apple OS"
+
 		for f in ipsw_files:
 			detected_files[f] = {}
 
@@ -179,7 +193,7 @@ class IPSW:
 			detected_files[f]["build"] = f_build
 			detected_files[f]["filesize"] = os.path.getsize(detected_files[f]["fullpath"])
 			detected_files[f]["modified"] = os.path.getmtime(detected_files[f]["fullpath"])
-			detected_files[f]["osname"] = "iOS" if "iPhone" in f else "iPadOS"
+			detected_files[f]["osname"] = osname(f_parts)
 			detected_files[f]["device_ids"] = []
 			detected_files[f]["device_names"] = []
 
@@ -531,6 +545,12 @@ class IPSWApp:
 
 			firmwares = ipsw.get_signed_firmwares(device["id"]) if not show_all else ipsw.get_all_firmwares(device["id"])
 
+			if not firmwares and not show_all:
+				term.print_warning("No signed firmwares available for this device; show unsigned?")
+				if term.input_yn("?"):
+					return cls.menu_select_firmware(ipsw, device, True)
+				else:
+					return None
 			if not firmwares:
 				term.print_warning("No firmwares found; please try another search")
 				term.pause()
@@ -541,7 +561,7 @@ class IPSWApp:
 					print(" ", end="")
 				print("%d. %s%s (%s)%s" % (i+1, term.fgcolors["green"] if firmwares[i]["signed"] else term.fgcolors["yellow"], firmwares[i]["version"], firmwares[i]["buildid"], term._reset()))
 
-				print("    %.2f GB / Released on %s" % (round(firmwares[i]["filesize"] / 1024 / 1024 / 1024, 2), datetime.strptime(firmwares[i]["releasedate"], "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")))
+				print("    %.2f GB / Released on %s" % (round(firmwares[i]["filesize"] / 1024 / 1024 / 1024, 2), datetime.strptime(firmwares[i]["releasedate"] or firmwares[i]["uploaddate"], "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")))
 				print
 			if not show_all:
 				print("%d. Show all firmwares (including unsigned)" % (len(firmwares) + 1))
@@ -605,7 +625,7 @@ class IPSWApp:
 				if d:
 					if not latest:
 						fw = cls.menu_select_firmware(ipsw, d)
-						if fw is not False:
+						if fw is not False and fw is not None:
 							d["fw_wants"] = fw["version"]
 							devices.append(d)
 					else:
@@ -645,6 +665,11 @@ class IPSWApp:
 				osname = "macOS"
 			elif "iPad" in d["device"]:
 				osname = "iPadOS"
+			elif "iPhone" in d["device"] or "iPod" in d["device"]:
+				if int(d["firmware"]["version"][0]) < 4:
+					osname = "iPhone OS"
+				else:
+					osname = "iOS"
 
 			print(f"- {d["device"]} ({d["id"]}) - {osname} {d["firmware"]["version"]} ({d["firmware"]["buildid"]})")
 			term.print_warning(f"  Size: {d["firmware"]["prettysize"]} / Release date: {d["firmware"]["prettydate"]}")
