@@ -2759,7 +2759,7 @@ class IMDApp:
 							initial_index = 0
 					case "view-log":
 						# textreader(title, filename, *, background_color, text_color, titlebar_bg, titlebar_fg, use_pageupdown, use_homeend_scrolling)
-						term.textreader(f"Restore log: S/N {job[2].device.serial_number}", job[2].logfile, background_color=None, text_color=None, titlebar_bg="red", titlebar_fg="white", use_pageupdown=True, use_homeend_scrolling=True)
+						term.textreader(f"Restore log: S/N {job[2].device.serial_number}", job[2].logfile, background_color=None, text_color=None, titlebar_bg="red", titlebar_fg="white", use_pageupdown=True, use_homeend_scrolling=True, reverse_lines=True)
 			elif type(selection) is str:
 				# ECID (the menu choices are a list of keys)
 				job = cls.restorer.jobs[selection]
