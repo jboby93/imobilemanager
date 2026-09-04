@@ -730,9 +730,6 @@ class Terminal:
 					handled = False
 	# end menu()
 	
-	# separate function for a menu that supports multiple selections?
-	# 
-	
 	@classmethod
 	def filebrowser(cls, title, prompt, *, start_dir=None, folder_select=False, show_files_in_folder_select=False, allow_mkdir=False, enter_on_mkdir=True):
 		if start_dir is None:
@@ -1165,7 +1162,7 @@ class Terminal:
 	# (help.txt format should be like that used on asset_intake_v3)
 	# 
 	@classmethod
-	def textreader(cls, title, filename, *, background_color=None, text_color=None, titlebar_bg="gray", titlebar_fg="black", allow_ctrlc=True, clear_on_finish=True, clear_on_start=True, raise_on_file_error=False, replacements={}, gotosection=0, theme=None, use_colors=True, use_pageupdown=True, use_homeend_scrolling=False):
+	def textreader(cls, title, filename, *, background_color=None, text_color=None, titlebar_bg="gray", titlebar_fg="black", allow_ctrlc=True, clear_on_finish=True, clear_on_start=True, raise_on_file_error=False, replacements={}, gotosection=0, theme=None, use_colors=True, use_pageupdown=True, use_homeend_scrolling=False, reverse_lines=False):
 		running = True
 
 		if not theme:
@@ -1183,6 +1180,11 @@ class Terminal:
 				helptext = f.read()
 
 			helpsections = helptext.split("$SECTION$\n")
+
+			if reverse_lines:
+				for i in range(len(helpsections)):
+					helpsections[i] = "\n".join(helpsections[i].split("\n")[::-1])
+
 			# print(len(helpsections))
 			# cls.pause()
 		except FileNotFoundError as e:
@@ -1279,8 +1281,11 @@ class Terminal:
 			while not handled:
 				handled = False
 				time.sleep(0.05)
-				key = cls.get_keypress()
-				# print(key)
+				# key = cls.get_keypress()
+				keycode = Terminal.get_keycode()
+				key = Terminal._code_to_keyname(keycode)
+
+				# print(f"{keycode} => {key}")
 				match key:
 					case "q" | "esc" | "backspace":
 						handled = True
@@ -1328,27 +1333,34 @@ class Terminal:
 							lineindex -= maxlines
 							if lineindex < 0:
 								lineindex = 0
+							print(f"maxlines: {maxlines} / lineindex: {lineindex}")
 					case "pgdown":
 						if use_pageupdown:
 							handled = True
 							lineindex += maxlines
 							if lineindex + maxlines > len(helpcontent):
 								lineindex = len(helpcontent) - maxlines
+							print(f"maxlines: {maxlines} / lineindex: {lineindex}")
 					case "+": # macOS-compatible alternative for PgUp
 						if use_pageupdown and platform.system() == "Darwin":
 							handled = True
 							lineindex -= maxlines
 							if lineindex < 0:
 								lineindex = 0
+							print(f"maxlines: {maxlines} / lineindex: {lineindex}")
 					case "+":# macOS-compatible alternative for PgDown
 						if use_pageupdown and platform.system() == "Darwin":
 							handled = True
 							lineindex += maxlines
 							if lineindex + maxlines > len(helpcontent):
 								lineindex = len(helpcontent) - maxlines
+							print(f"maxlines: {maxlines} / lineindex: {lineindex}")
 
 			# end while (key input loop)
 		# end while (text viewer loop)
+		# 
+		if clear_on_finish:
+			cls.clear()
 	# end textreader()
 
 	# preset button definitions for modals
@@ -1408,10 +1420,10 @@ class Terminal:
 	# TODO: KEYCODES ARE DIFFERENT WITH AND WITHOUT CAPSLOCK
 	# 
 	_keys = {
-		"up":           ["\\xe0\\x48", "\\x1b\\x5b\\x41"],
-		"down":         ["\\xe0\\x50", "\\x1b\\x5b\\x42"],
-		"left":         ["\\xe0\\x4b", "\\x1b\\x5b\\x44"],
-		"right":        ["\\xe0\\x4d", "\\x1b\\x5b\\x43"],
+		"up":           ["\\x48", "\\xe0\\x48", "\\x1b\\x5b\\x41"],
+		"down":         ["\\x50", "\\xe0\\x50", "\\x1b\\x5b\\x42"],
+		"left":         ["\\x4b", "\\xe0\\x4b", "\\x1b\\x5b\\x44"],
+		"right":        ["\\x4d", "\\xe0\\x4d", "\\x1b\\x5b\\x43"],
 		"a":            "\\x61",
 		"b":            "\\x62",
 		"c":            "\\x63",
@@ -1455,8 +1467,8 @@ class Terminal:
 		"esc":          ["\\x1b", "\\xe0\\x1b"],
 		"ins":          "\\xe0\\x52",
 		"del":          "\\xe0\\x53",
-		"pgup":         "\\xe0\\x49",
-		"pgdown":       "\\xe0\\x51",
+		"pgup":         ["\\x49", "\\xe0\\x49"],
+		"pgdown":       ["\\x51", "\\xe0\\x51"],
 		"home":         "\\xe0\\x47",
 		"end":          "\\xe0\\x4f",
 		"ctrl-c":       "\\x03",
