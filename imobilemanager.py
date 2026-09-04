@@ -720,7 +720,7 @@ class Device(Mapping[str, Any]):
 		self._is_recovering = True
 		starttime = time()
 		if not suppress_msgs:
-			term.print_warning(f"[{self.serial_number or self.ecid}] beginning restore process")
+			term.print_warning(f"\n[{self.serial_number or self.ecid}] beginning restore process")
 
 		if not logfile:
 			logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number}-{strftime("%H.%M.%S")}.log")
@@ -734,9 +734,9 @@ class Device(Mapping[str, Any]):
 		logger.debug("restore process completed in %d minutes" % (round(int(endtime - starttime) / 60, 2)))
 
 		if rtn == 0:
-			term.print_success(f"[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes\n")
+			term.print_success(f"\n[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes\n")
 		else:
-			term.print_warning(f"[{self.serial_number or self.ecid}] restore FAILED in {round(int(endtime - starttime) / 60, 2)} minutes\n")
+			term.print_warning(f"\n[{self.serial_number or self.ecid}] restore FAILED in {round(int(endtime - starttime) / 60, 2)} minutes\n")
 			term.print_warning(f"* please check the logfile for this device: {logfile}")
 
 		return rtn
@@ -1798,7 +1798,7 @@ class IMDRestoreManager:
 			self._device = device
 			self._running = True
 
-			term.print_warning("* Beginning restore operation for device with %s" % device.identifier)
+			term.print_warning("* Beginning restore operation for device %s" % device.identifier)
 			self._starttime = time()
 
 			if device.bootmode == "normal":
