@@ -734,9 +734,9 @@ class Device(Mapping[str, Any]):
 		logger.debug("restore process completed in %d minutes" % (round(int(endtime - starttime) / 60, 2)))
 
 		if rtn == 0:
-			term.print_success(f"[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes")
+			term.print_success(f"[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes\n")
 		else:
-			term.print_warning(f"[{self.serial_number or self.ecid}] restore FAILED in {round(int(endtime - starttime) / 60, 2)} minutes")
+			term.print_warning(f"[{self.serial_number or self.ecid}] restore FAILED in {round(int(endtime - starttime) / 60, 2)} minutes\n")
 			term.print_warning(f"* please check the logfile for this device: {logfile}")
 
 		return rtn
@@ -972,7 +972,7 @@ class Device(Mapping[str, Any]):
 	@property
 	def is_ipod(self):
 		return "iPod" in self.product_type
-		
+
 	@property
 	def osname(self):
 		if self.is_iphone or self.is_ipod:
@@ -1826,9 +1826,10 @@ class IMDRestoreManager:
 				term.print_error("* Restore cancelled for %s; this device may be in an unusable state!" % self.device_id)
 			elif future.done():
 				if self.returncode == 0:
-					term.print_labelled("* Restore finished", self.device_id, color="green")
+					pass
+					# term.print_labelled("* Restore finished", f"{self.device_id}\n", color="green")
 				else:
-					term.print_labelled("* Restore FAILED", self.device_id, color="yellow")
+					term.print_labelled("* Restore FAILED", f"{self.device_id}\n", color="yellow")
 					term.print("Please check the logfile for this restore process to see what went wrong:")
 					term.print("  " + self._logfile)
 
