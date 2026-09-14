@@ -2668,7 +2668,8 @@ class IMDApp:
 			"Select a job for more info or:",
 			"R: refresh list        C: cancel job",
 			"D: restart job         P: purge finished jobs",
-			"L: view job logfile    X,Q,BACKSPACE: go back",
+			"L: view job logfile    F: restart failed jobs",
+			"X,Q,BACKSPACE: go back",
 			"==============================================="
 		]
 
@@ -2677,7 +2678,8 @@ class IMDApp:
 			"c": "cancel",
 			"d": "restart",
 			"p": "purge-finished",
-			"l": "view-log"
+			"l": "view-log",
+			"f": "restart-failed"
 		}
 
 		quit_keys = ["x", "q", "backspace"]
@@ -2753,15 +2755,39 @@ class IMDApp:
 						else:
 							term.modalalert("Unable to restart", "An error occurred while attempting to restart this job.  Quit this script and try again.")
 					case "purge-finished":
+						failed_keys = [key for key in cls.restorer.jobs.keys() if cls.restorer.job[key][0].done() and cls.restorer.job[key][2].returncode != 0]
+
 						for i in range(len(keys := list(cls.restorer.jobs.keys()))):
-							if cls.restorer.jobs[(key := keys[i])][0].done():
+							if cls.restorer.jobs[(key := keys[i])][0].done() and key not in failed_keys:
 								del cls.restorer.jobs[key]
+
+						if len(failed_keys) > 0:
+							match term.modalalert("Purge failed jobs?", "Some of the jobs in the queue have failed.  Would you like to restart these jobs, or continue to clear all jobs from the queue?  Selecting Cancel will leave these jobs in the job queue for further analysis.",
+								clear_on_start=False,
+								default_button=0,
+								allow_ctrlc=True,
+								allow_esc_cancel=True,
+								buttons=[
+									{ "label": "Restart", "value": "restart" },
+									{ "label": "Purge", "value": "purge" },
+									{ "label": "Cancel", "value": "cancel"}
+								]): # ):
+								case "restart":
+									for key in failed_keys:
+										fjob = cls.restorer.jobs[key][2]
+										cls.restorer.submit_job(fjob.device)
+								case "purge":
+									for i in range(len(failed_keys)):
+										if cls.restorer.jobs[(key := failed_keys[i])][0].done():
+											del cls.restorer.jobs[key]
 
 						if initial_index >= len(cls.restorer.jobs):
 							initial_index = 0
 					case "view-log":
 						# textreader(title, filename, *, background_color, text_color, titlebar_bg, titlebar_fg, use_pageupdown, use_homeend_scrolling)
 						term.textreader(f"Restore log: S/N {job[2].device.serial_number}", job[2].logfile, background_color=None, text_color=None, titlebar_bg="red", titlebar_fg="white", use_pageupdown=True, use_homeend_scrolling=True, reverse_lines=True)
+					case "restart-failed":
+						pass
 			elif type(selection) is str:
 				# ECID (the menu choices are a list of keys)
 				job = cls.restorer.jobs[selection]
