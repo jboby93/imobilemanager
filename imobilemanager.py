@@ -7,7 +7,8 @@
 # more info to come
 # TODO:
 # - all TODOs
-# - dump device json info when detected, for debugging and review of connected devices
+# - hotkey in jobs queue view - restart all failed jobs
+# 	- purge finished jobs should offer to leave failed jobs in the queue, if there were any that failed
 # 
 
 import difflib, enum, json, logging, os, platform, random, re, shutil, subprocess, sys, tarfile, tempfile, textwrap, webbrowser, zipfile

@@ -1,7 +1,12 @@
 # TODO:
 # 
 # option 4: delete older firmwares, if multiple versions exist for a device and the older ones are no longer being signed
-# 
+# option 1/2:
+# - when downloading firmware for device X:
+# 	- if there are already older firmwares present for device X:
+# 		- offer to delete these older firmwares
+# 		
+# 		
 import json, os, sys, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
