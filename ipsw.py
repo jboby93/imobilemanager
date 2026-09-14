@@ -258,6 +258,10 @@ class IPSW:
 			"by_file": detected_files
 		}
 
+	def get_downloaded_firmwares_for_device(self, devid):
+		files = self.get_downloaded_firmwares_dict()["by_file"]
+		return {key: files[key] for key in files if devid in files[key]["device_ids"]}
+
 	# returns -1 if A is newer than B; 1 if B is newer than A; 0 if both version strings match
 	# apparently python can just, naturally compare strings such as version numbers...? love it
 	# but not always. they at least always have a major and minor version
