@@ -980,7 +980,7 @@ class Terminal:
 	# end filebrowser()
 	 
 	@classmethod
-	def modalalert(cls, title, text, *, buttons=None, default_button=0, background_title="", bgtitle_bg="gray", bgtitle_fg="black", background_color="blue", titlebar_fg="red", titlebar_bg=None, box_color="gray", box_shadow="black", text_color="black", selected_bg="black", selected_fg="gray", button_fg="blue", box_style="double", allow_ctrlc=True, allow_esc_cancel=False, clear_on_finish=True, clear_on_start=True, no_user_interaction=False):
+	def modalalert(cls, title, text, *, buttons=None, default_button=0, background_title="", bgtitle_bg="gray", bgtitle_fg="black", background_color="blue", titlebar_fg="red", titlebar_bg=None, box_color="gray", box_shadow="black", text_color="black", selected_bg="black", selected_fg="gray", button_fg="blue", box_style="double", allow_ctrlc=True, allow_esc_cancel=False, clear_on_finish=True, clear_on_start=True, no_user_interaction=False, esc_cancel_value=None):
 		if buttons is None:
 			buttons = cls.ModalButtons.OK
 
@@ -1148,7 +1148,7 @@ class Terminal:
 				elif key == "esc" and allow_esc_cancel:
 					handled = True
 					running = False
-					return False
+					return esc_cancel_value or False
 				elif key == "ctrl-c":
 					handled = True
 					running = False

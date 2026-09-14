@@ -1248,6 +1248,10 @@ class IPSWApp:
 
 					last_result = None
 
+				
+				term.print_labelled("Current path", ipsw.downloadpath)
+				print()
+
 				term.print_msg("")
 				term.print_msg("Choose a menu option:")
 				print("1. Download latest firmware for device(s)")

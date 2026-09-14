@@ -9,6 +9,7 @@
 # - all TODOs
 # - hotkey in jobs queue view - restart all failed jobs
 # 	- purge finished jobs should offer to leave failed jobs in the queue, if there were any that failed
+# - staggered start for restore jobs? don't start them all at once, but wait a lil between starting each one
 # 
 
 import difflib, enum, json, logging, os, platform, random, re, shutil, subprocess, sys, tarfile, tempfile, textwrap, webbrowser, zipfile
