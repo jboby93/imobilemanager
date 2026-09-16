@@ -2066,7 +2066,7 @@ class IMDApp:
 				f"    Device: {device.model_name} (recovery mode)",
 				f"      Name: {device.name}",
 				f"     Model: {device.product_type}",
-				f"      Chip:" + (f"{chip.name} ({chip.id})" if (chip := ChipID.lookup(device.chipid)) else f"{device.chipid}"),
+				f"      Chip: " + (f"{chip.name} ({chip.id})" if (chip := ChipID.lookup(device.chipid)) else f"{device.chipid}"),
 				f"       S/N: {device.serial_number}",
 				f"      IMEI: {device.imei_1 or 'n/a'}",
 				f"      UDID: {device.udid}",
@@ -2096,8 +2096,7 @@ class IMDApp:
 	def print_device_summary(cls, device, *, as_string=False):
 		if device.bootmode != "normal":
 			# something different for recovery devices
-			cls.print_recovery_device_summary(device, as_string=as_string)
-			return
+			return cls.print_recovery_device_summary(device, as_string=as_string)
 
 		if as_string:
 			locale = device.get_locale_info()
