@@ -1405,22 +1405,22 @@ class IMobileDevice:
 	# end initialize()			
 	
 	@classmethod
-	def prepare_lookup_dicts(cls):
-		if os.path.exists(cls.MODELS_DICT_FILE) or download_file(cls.MODELS_DICT_URL, cls.MODELS_DICT_FILE):
+	def prepare_lookup_dicts(cls, *, force_reinstall=False):
+		if (os.path.exists(cls.MODELS_DICT_FILE) and not force_reinstall) or download_file(cls.MODELS_DICT_URL, cls.MODELS_DICT_FILE):
 			with open(cls.MODELS_DICT_FILE, "r") as f:
 				cls.models_dict = json.loads(f.read())
 		else:
 			term.print_error(f"** unable to collect {cls.MODELS_DICT_URL} - device identification will not fully work")
 			term.pause()
 
-		if os.path.exists(cls.CHIPID_DICT_FILE) or download_file(cls.CHIPID_DICT_URL, cls.CHIPID_DICT_FILE):
+		if (os.path.exists(cls.CHIPID_DICT_FILE) and not force_reinstall) or download_file(cls.CHIPID_DICT_URL, cls.CHIPID_DICT_FILE):
 			with open(cls.CHIPID_DICT_FILE, "r") as f:
 				cls.chipid_dict = json.loads(f.read())
 		else:
 			term.print_error(f"** unable to collect {cls.CHIPID_DICT_URL} - ChipID identification will not work")
 			term.pause()
 
-		if os.path.exists(cls.DEVICE_DICT_FILE) or download_file(cls.DEVICE_DICT_URL, cls.DEVICE_DICT_FILE):
+		if (os.path.exists(cls.DEVICE_DICT_FILE) and not force_reinstall) or download_file(cls.DEVICE_DICT_URL, cls.DEVICE_DICT_FILE):
 			with open(cls.DEVICE_DICT_FILE, "r") as f:
 				cls.devices_dict = json.loads(f.read())
 		else:
@@ -1428,7 +1428,7 @@ class IMobileDevice:
 			term.pause()
 
 	@classmethod
-	def prepare_runtime(cls):
+	def prepare_runtime(cls, *, force_reinstall=False):
 		term.print_warning("* Verifying dependencies...")
 
 		cls.PLATFORM = platform.system()
@@ -2851,6 +2851,7 @@ class IMDApp:
 				{"label": "View restore job queue", "function": cls.view_restore_jobs, "requires_jobs": True},
 				{"label": "ERASE DEVICES - idevicerestore", "function": "wipe", "requires_scan": True},
 				{"label": "ERASE DEVICES - cfgutil (macOS only)", "function": "wipe-appl", "requires_scan": True, "platform": "Darwin"},
+				{"label": "Update data sources", "function": "update-data"},
 				{"label": "Help / About", "function": "help"},
 				{"label": "Exit", "function": "exit"}
 			]
@@ -2910,6 +2911,16 @@ class IMDApp:
 								continue
 
 							pass
+						case "update-data":
+							term.screen("Fetching data sources...")
+							IMobileDevice.prepare_lookup_dicts(force_reinstall=True)
+							IMobileDevice.ipsw.refresh_device_list()
+						case "update-deps":
+							term.screen("Reinstalling dependencies...")
+							IMobileDevice.prepare_runtime(force_reinstall=True)
+							term.screen("Fetching data sources...")
+							IMobileDevice.prepare_lookup_dicts(force_reinstall=True)
+							IMobileDevice.ipsw.refresh_device_list()
 						case "view":
 							cls.view_devices(rescan=False)
 						case "help":
