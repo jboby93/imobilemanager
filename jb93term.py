@@ -1341,15 +1341,15 @@ class Terminal:
 							if lineindex + maxlines > len(helpcontent):
 								lineindex = len(helpcontent) - maxlines
 							print(f"maxlines: {maxlines} / lineindex: {lineindex}")
-					case "+": # macOS-compatible alternative for PgUp
-						if use_pageupdown and platform.system() == "Darwin":
+					case "-": # macOS-compatible alternative for PgUp
+						if use_pageupdown: # and platform.system() == "Darwin":
 							handled = True
 							lineindex -= maxlines
 							if lineindex < 0:
 								lineindex = 0
 							print(f"maxlines: {maxlines} / lineindex: {lineindex}")
 					case "+":# macOS-compatible alternative for PgDown
-						if use_pageupdown and platform.system() == "Darwin":
+						if use_pageupdown: # and platform.system() == "Darwin":
 							handled = True
 							lineindex += maxlines
 							if lineindex + maxlines > len(helpcontent):
