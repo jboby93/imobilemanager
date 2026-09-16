@@ -17,7 +17,7 @@ from urllib.request import urlopen
 from jb93term import Terminal as term
 
 APP_NAME = "IPSWApp"
-APP_VERSION = "v3.2"
+APP_VERSION = "v3.3"
 APP_DATE = datetime.fromtimestamp(os.path.getmtime(sys.argv[0])).strftime("%Y-%m-%d %H:%M:%S")
 
 # make sure pycurl is installed
@@ -667,6 +667,8 @@ class IPSWApp:
 
 		term.print_msg("The following firmwares will be downloaded:")
 		target_files = []
+
+		devices = [dev for dev in devices if dev["firmware"]]
 
 		for d in devices:
 			osname = "iOS"
