@@ -36,7 +36,7 @@ from ipsw import IPSW, IPSWApp
 from imm_defs import REPLCompleter, Carrier, Attribute, DomainKey, MobileApp, ChipID
 
 APP_NAME="iMobileManager"
-APP_VERSION="0.7 beta"
+APP_VERSION="0.8 beta"
 APP_DATE=datetime.fromtimestamp(os.path.getmtime(sys.argv[0])).strftime("%Y-%m-%d %H:%M:%S")
 DEBUG=True
 LOG_TO_STDOUT=False
@@ -220,26 +220,46 @@ class DeviceID(Hashable):
 	# for debugging purposes (and because idevice_models.json is incomplete/there are edge cases where model numbers vary for the same product type)
 	# returns: a model number that is guaranteed to be in the models dict
 	@classmethod
-	def match_model_record(cls, modelnumber, guesses={}, serial=None):
+	def match_model_record(cls, modelnumber, guesses={}, serial=None, udid=None):
 		if len(guesses) > 0:
-			choices = [f"{key}: {guesses[key][1]} {guesses[key][2]} {guesses[key][3]}" for key in guesses]
-			choices.append("00000: None of these")
-			# start with the possible matches
-			selection = term.menu("Does the connected device's model match any of these?", choices, title=f"Manually identify model '{modelnumber}' (S/N: {serial or 'n/a'})", quit_keys=["x", "q"])
-			if selection:
-				# print(selection)
-				match_key = selection.split(":")[0]
-				if match_key != "00000":
-					model_record = IMobileDevice.models_dict[match_key]
-					IMobileDevice.models_dict[modelnumber] = model_record
-					try:
-						with open(IMobileDevice.MODELS_DICT_FILE, "w") as f:
-							f.write(json.dumps(IMobileDevice.models_dict, indent=4))
-						logger.info(f"appended new device model record: {match_key} => {model_record}")
-					except Exception as e:
-						term.print_error(f"Couldn't save {IMobileDevice.MODELS_DICT_FILE} - {str(e)}")
+			run_menu = True
 
-					return match_key
+			choices = [f"{key}: {guesses[key][1]} {guesses[key][2]} {guesses[key][3]}" for key in guesses]
+			if udid:
+				choices.append("00999: Visually indicate device (via reboot)")
+			choices.append("00000: None of these")
+
+			while run_menu:
+				# start with the possible matches
+				selection = term.menu("Does the connected device's model match any of these?", choices, title=f"Manually identify model '{modelnumber}' (S/N: {serial or 'n/a'})", quit_keys=["x", "q"])
+				if selection:
+					# print(selection)
+					match_key = selection.split(":")[0]
+					if match_key == "00999":
+						# reboot the device to help visually identify it, and loop the menu
+						rtn, output = _libimd("idevicediagnostics", "--udid", udid, "restart")
+
+						term.screen(f"Manually identify model '{modelnumber}' (S/N: {serial or 'n/a'})")
+						term.print_msg("The device is now rebooting to help you visually identify it.")
+						term.print("When you are ready, press any key to return to the devivce identification menu.")
+
+						term.pause()
+
+						continue
+					elif match_key == "00000":
+						run_menu = False
+						continue
+					else:
+						model_record = IMobileDevice.models_dict[match_key]
+						IMobileDevice.models_dict[modelnumber] = model_record
+						try:
+							with open(IMobileDevice.MODELS_DICT_FILE, "w") as f:
+								f.write(json.dumps(IMobileDevice.models_dict, indent=4))
+							logger.info(f"appended new device model record: {match_key} => {model_record}")
+						except Exception as e:
+							term.print_error(f"Couldn't save {IMobileDevice.MODELS_DICT_FILE} - {str(e)}")
+
+						return match_key
 
 		# user can search for the model
 		# 
@@ -343,7 +363,7 @@ class Device(Mapping[str, Any]):
 			# print(possible_matches)
 
 			if allow_corrections and self.model_number:
-				if (model_override := DeviceID.match_model_record(self.model_number, possible_matches, self.serial_number)):
+				if (model_override := DeviceID.match_model_record(self.model_number, possible_matches, self.serial_number, self.udid)):
 					self._info["BaseModelNumber"] = model_override
 					model = IMobileDevice.models_dict[model_override]
 					self._info["ModelName"] = model[1]
@@ -2840,7 +2860,7 @@ class IMDApp:
 						else:
 							term.modalalert("Unable to restart", "An error occurred while attempting to restart this job.  Quit this script and try again.")
 					case "purge-finished":
-						failed_keys = [key for key in cls.restorer.jobs.keys() if cls.restorer.job[key][0].done() and cls.restorer.job[key][2].returncode != 0]
+						failed_keys = [key for key in cls.restorer.jobs.keys() if cls.restorer.jobs[key][0].done() and cls.restorer.jobs[key][2].returncode != 0]
 
 						for i in range(len(keys := list(cls.restorer.jobs.keys()))):
 							if cls.restorer.jobs[(key := keys[i])][0].done() and key not in failed_keys:
