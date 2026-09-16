@@ -578,8 +578,13 @@ class IPSWApp:
 					print(" ", end="")
 				print("%d. %s%s (%s)%s%s" % (i+1, term.fgcolors["green"] if firmwares[i]["signed"] else term.fgcolors["yellow"], firmwares[i]["version"], firmwares[i]["buildid"], term._reset(), (f" {term.fgcolors["green"]}(downloaded){term._reset()}" if ipsw.has_local_firmware(device["id"], firmwares[i]["version"]) else "")))
 
-				print("    %.2f GB / Released on %s" % (round(firmwares[i]["filesize"] / 1024 / 1024 / 1024, 2), datetime.strptime(firmwares[i]["releasedate"] or firmwares[i]["uploaddate"], "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")))
-				print
+				filesize = round(firmwares[i]["filesize"] / 1024 / 1024 / 1024, 2)
+				filesize_unit = "GB"
+				if filesize < 1.0:
+					filesize = round(firmwares[i]["filesize"] / 1024 / 1024, 2)
+					filesize_unit = "MB"
+
+				print("    %.2f %s / Released on %s" % (filesize, filesize_unit, datetime.strptime(firmwares[i]["releasedate"] or firmwares[i]["uploaddate"], "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")))
 			if not show_all:
 				print("%d. Show all firmwares (including unsigned)" % (len(firmwares) + 1))
 			print()
