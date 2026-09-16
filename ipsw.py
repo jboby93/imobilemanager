@@ -258,9 +258,17 @@ class IPSW:
 			"by_file": detected_files
 		}
 
+	# get dict of all local firmwares for a specific device
+	# dict:: [ipsw-filename] => {firmware json dict}
 	def get_downloaded_firmwares_for_device(self, devid):
 		files = self.get_downloaded_firmwares_dict()["by_file"]
 		return {key: files[key] for key in files if devid in files[key]["device_ids"]}
+
+	# tests whether a specific firmware has already been downloaded, given the product id and version
+	def has_local_firmware(self, devid, version: str) -> bool:
+		files = self.get_downloaded_firmwares_for_device(devid)
+		matches = {key: files[key] for key in files if files[key]["version"] == version}
+		return (len(matches) > 0)
 
 	# returns -1 if A is newer than B; 1 if B is newer than A; 0 if both version strings match
 	# apparently python can just, naturally compare strings such as version numbers...? love it
@@ -568,7 +576,7 @@ class IPSWApp:
 			for i in range(len(firmwares)):
 				if i < 9 and len(firmwares) >= 10:
 					print(" ", end="")
-				print("%d. %s%s (%s)%s" % (i+1, term.fgcolors["green"] if firmwares[i]["signed"] else term.fgcolors["yellow"], firmwares[i]["version"], firmwares[i]["buildid"], term._reset()))
+				print("%d. %s%s (%s)%s%s" % (i+1, term.fgcolors["green"] if firmwares[i]["signed"] else term.fgcolors["yellow"], firmwares[i]["version"], firmwares[i]["buildid"], term._reset(), (f" {term.fgcolors["green"]}(downloaded){term._reset()}" if ipsw.has_local_firmware(device["id"], firmwares[i]["version"]) else "")))
 
 				print("    %.2f GB / Released on %s" % (round(firmwares[i]["filesize"] / 1024 / 1024 / 1024, 2), datetime.strptime(firmwares[i]["releasedate"] or firmwares[i]["uploaddate"], "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")))
 				print
@@ -587,6 +595,8 @@ class IPSWApp:
 			term.print_error(str(e))
 			term.pause()
 			# raise e
+		except KeyboardInterrupt:
+			return None
 	# end menu_select_firmware()
 
 	@classmethod
@@ -637,6 +647,8 @@ class IPSWApp:
 						if fw is not False and fw is not None:
 							d["fw_wants"] = fw["version"]
 							devices.append(d)
+						elif fw is None:
+							last_result = {"type": "error", "text": "Firmware selection cancelled"}
 					else:
 						d["fw_wants"] = "latest"
 						devices.append(d)
