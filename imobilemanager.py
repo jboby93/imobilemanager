@@ -504,15 +504,26 @@ class Device(Mapping[str, Any]):
 		return Device(device_info, in_recovery=True)
 
 	# dumps all collected device info to json file/console
-	def dump_info(self, *, to_file=True, to_stdout=False, filename=None):
+	def dump_info(self, *, dump_summary=True, dump_details=True, to_file=True, to_stdout=False, summary_filename=None, details_filename=None, summary_to_stdout=False):
 		if to_file:
-			if not filename:
-				filename = f"{IMobileDevice.LOG_PATH}/device-{self.serial_number}.json"
-			with open(filename, "w") as f:
-				f.write(json.dumps(self._info, indent=4))
+			if dump_summary:
+				if not summary_filename:
+					summary_filename = f"{IMobileDevice.LOG_PATH}/device-{self.serial_number}.txt"
+				with open(summary_filename, "w") as f:
+					f.write(IMDApp.print_device_summary(self, as_string=True))
+
+			if dump_details:
+				if not details_filename:
+					details_filename = f"{IMobileDevice.LOG_PATH}/device-{self.serial_number}.json"
+				with open(details_filename, "w") as f:
+					f.write(json.dumps(self._info, indent=4))
 
 		if to_stdout:
-			print(json.dumps(self._info, indent=4))
+			if dump_summary and summary_to_stdout:
+				print(IMDApp.print_device_summary(self, as_string=True))
+
+			if dump_details:
+				print(json.dumps(self._info, indent=4))
 
 	# Mapping methods
 	def __getitem__(self, key):
@@ -619,6 +630,7 @@ class Device(Mapping[str, Any]):
 				_ = self.phone_number_2
 				self.infer_model()
 
+			self.dump_info()
 			return True
 		elif in_recovery:
 			self._in_recovery = True
@@ -626,6 +638,7 @@ class Device(Mapping[str, Any]):
 			logger.debug(f"* found recovery device with id {self.identifier}")
 			self._info["BootMode"] = "recovery"
 
+			self.dump_info()
 			return True
 		else:
 			self._connected = False
@@ -2046,7 +2059,21 @@ class IMDApp:
 	# end show_qr_codes()
 
 	@classmethod
-	def print_recovery_device_summary(cls, device):
+	def print_recovery_device_summary(cls, device, *, as_string=False):
+		if as_string:
+			return "\n".join([
+				f"Summary: {device.model_name} - {device.serial_number} (recovery mode)",
+				f"    Device: {device.model_name} (recovery mode)",
+				f"      Name: {device.name}",
+				f"     Model: {device.product_type}",
+				f"      Chip:" + (f"{chip.name} ({chip.id})" if (chip := ChipID.lookup(device.chipid)) else f"{device.chipid}"),
+				f"       S/N: {device.serial_number}",
+				f"      IMEI: {device.imei_1 or 'n/a'}",
+				f"      UDID: {device.udid}",
+				f"      ECID: {device.ecid}",
+				f"      Boot: {device.bootmode}"
+			])
+
 		term.screen("Summary: %s - %s (recovery mode)" % (device.model_name, device.serial_number))
 		term.print_labelled("    Device", f"{device.model_name} (recovery mode)", color="green")
 		term.print_labelled("      Name", device.name)
@@ -2056,6 +2083,7 @@ class IMDApp:
 		else:
 			term.print_labelled("      Chip", device.chipid)
 		term.print_labelled("       S/N", device.serial_number)
+		term.print_labelled("      IMEI", device.imei_1 or "n/a")
 		term.print_labelled("      UDID", device.udid)
 		term.print_labelled("      ECID", device.ecid)
 		term.print_labelled("      Boot", device.bootmode)
@@ -2065,12 +2093,66 @@ class IMDApp:
 		print()
 
 	@classmethod
-	def print_device_summary(cls, device):
+	def print_device_summary(cls, device, *, as_string=False):
 		if device.bootmode != "normal":
 			# something different for recovery devices
-			cls.print_recovery_device_summary(device)
+			cls.print_recovery_device_summary(device, as_string=as_string)
 			return
 
+		if as_string:
+			locale = device.get_locale_info()
+			battery = device.get_battery_info()
+
+			resp = [
+				f"Summary: {device.model_name} - {device.serial_number}",
+				f"    Device: {device.model_name} {device.model_storage} {device.model_color}",
+				f"      Name: {device.name}",
+				f"     Model: {device.sku} ({device.product_type})",
+				f"      Chip: " + (f"{chip.name} ({chip.id})" if (chip := ChipID.lookup(device.chipid)) else f"{device.chipid}"),
+				f"       S/N: {device.serial_number}",
+				f"      UDID: {device.udid}",
+				f"      ECID: {device.ecid}",
+				f"  Released: {device.model_releasedate} ({int((age := divmod((date.today() - date(*map(int, device.model_releasedate.split("-")))).days, 365.25))[0])} year(s), {int(age[1])} day(s) ago)",
+				"",
+				f"  Software: {device.osname} {device.osversion}",
+				f"     Build: {device.osbuild}",
+				f"      Boot: {device.bootmode}",
+				f"    iCloud: {device.icloud_account if device.icloud_locked else "not signed in"}",
+				f"  Language: {locale["Language"] if locale else "n/a"}",
+				"",
+				f" LINQ Code: {device.linq_im_code}",
+				""
+			]
+			if battery:
+				bat_status = "charging" if battery["BatteryIsCharging"] else ("plugged in" if battery["ExternalConnected"] else "discharging")
+				resp.append(f"   Battery: {battery["BatteryCurrentCapacity"]}% ({bat_status})")
+				if "GasGaugeCapability" in battery:
+					resp.append(f"    Cycles: {device.get_power_info()["CycleCount"]}")
+			else:
+				resp.append("   Battery: none")
+			resp.append("")
+
+			resp.append(f"  Cellular: {"yes" if device.is_cellular_capable else "no"}")
+
+			if device.is_cellular_capable:
+				resp.append(f"  Has pSIM: {"yes" if device.has_psim_slot else "no"}")
+				if device.has_psim_slot:
+					resp.append(f"      pSIM: {"present" if device.has_psim_inserted else "not present"}")
+
+				resp.append(f"   Carrier: {(str(device.carrier_1) if device.carrier_1 else "n/a") + (" (%s)" % device.carrier_id_1)}")
+				resp.append(f"      Line: {str(device.get_line_number(1)) if device.phone_number_1 else "n/a"}")
+				resp.append(f"      IMEI: {str(device.imei_1) if device.imei_1 else "n/a"}")
+				resp.append(f"     ICCID: {str(device.iccid_1) if device.iccid_1 else "n/a"}")
+
+				if device.imei_2:
+					resp.append(f"   Carrier: {(str(device.carrier_2) if device.carrier_2 else "n/a") + (" (%s)" % device.carrier_id_2)}")
+					resp.append(f"      Line: {str(device.get_line_number(2)) if device.phone_number_2 else "n/a"}")
+					resp.append(f"      IMEI: {str(device.imei_2) if device.imei_2 else "n/a"}")
+					resp.append(f"     ICCID: {str(device.iccid_2) if device.iccid_2 else "n/a"}")
+
+			return "\n".join(resp)
+		# end if (return as string)
+			
 		term.screen("Summary: %s - %s" % (device.model_name, device.serial_number))
 		term.print_labelled(f"    Device", f"{device.model_name} {device.model_storage} {device.model_color}", color="green")
 		term.print_labelled("      Name", device.name)
