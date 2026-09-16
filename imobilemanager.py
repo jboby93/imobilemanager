@@ -490,15 +490,19 @@ class Device(Mapping[str, Any]):
 		info = {prop.split(": ")[0]: prop.split(": ")[1] for prop in output}
 
 		# print(info)
+		# term.pause()
 
 		# "ProductType": info["PRODUCT"] => "Model Name"
 		device_info = {
-			"SerialNumber": sn if (Attribute.Recovery.SERIAL_NUMBER in info) and (sn := info[Attribute.Recovery.SERIAL_NUMBER]) != "N/A" else None,
-			"DieID": int(info[Attribute.Recovery.ECID], 16),
-			"ChipID": int(info[Attribute.Recovery.CHIP_ID], 16),
-			"ProductType": (product_type := info[Attribute.Recovery.PRODUCT_TYPE]),
+			Attribute.SERIAL_NUMBER: sn if (Attribute.Recovery.SERIAL_NUMBER in info) and (sn := info[Attribute.Recovery.SERIAL_NUMBER]) != "N/A" else None,
+			Attribute.DIE_ID: int(info[Attribute.Recovery.ECID], 16),
+			Attribute.CHIP_ID: int(info[Attribute.Recovery.CHIP_ID], 16),
+			Attribute.IMEI_1: info[Attribute.Recovery.IMEI_1] or "N/A",
+			Attribute.TELEPHONY_CAPABLE: True if info[Attribute.Recovery.IMEI_1] else False,
+			Attribute.PRODUCT_TYPE: (product_type := info[Attribute.Recovery.PRODUCT_TYPE]),
 			"ModelName": IMobileDevice.ipsw.device_names[product_type],
-			"BootMode": info[Attribute.Recovery.MODE] # Recovery, or DFU
+			"BootMode": info[Attribute.Recovery.MODE], # Recovery, or DFU
+			"irecovery-dump": info
 		}
 
 		return Device(device_info, in_recovery=True)
