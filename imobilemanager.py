@@ -2957,8 +2957,8 @@ class IMDApp:
 				{"label": "ERASE DEVICES - idevicerestore", "function": "wipe", "requires_scan": True},
 				{"label": "ERASE DEVICES - cfgutil (macOS only)", "function": "wipe-appl", "requires_scan": True, "platform": "Darwin"},
 				{"label": "Update data sources", "function": "update-data"},
-				{"label": "Help / About", "function": "help"},
-				{"label": "Exit", "function": "exit"}
+				{"label": "Help / About", "function": "help"}
+				# {"label": "Exit", "function": "exit"}
 			]
 			instructions = [
 				"Scan for devices first to show the Restore options",
@@ -2979,7 +2979,7 @@ class IMDApp:
 
 			header = f"Last scan: found {len(cls.active_devices)} devices"
 
-			selection = term.numbermenu(header, choices, default_choice, title=menu_title, format_str="%s", format_fields=["label"], instructions=instructions)
+			selection = term.numbermenu(header, choices, default_choice, title=menu_title, format_str="%s", format_fields=["label"], instructions=instructions, add_exit_item=True, exit_str=f"Exit {APP_NAME}")
 			# selection = term.menu(header, choices, title=f"{APP_NAME} - {APP_VERSION}", format_str="%s", format_fields=["label"], show_pages=False, instructions=instructions)
 			if selection:
 				if callable(selection["function"]):

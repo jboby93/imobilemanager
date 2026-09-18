@@ -380,14 +380,16 @@ class Terminal:
 			return cancelvalue
 
 	# helper for numeric input prompts
+	# can also allow predetermined other single chars if desired (e.g. for a special menu option)
 	@classmethod
-	def input_int(cls, prompt, defaultvalue=None, *, retry_until_valid=True, within=None, allow_ctrlc=False, cancelvalue=None, cancelmessage="** cancelled"):
+	def input_int(cls, prompt, defaultvalue=None, *, retry_until_valid=True, within=None, allow_ctrlc=False, cancelvalue=None, cancelmessage="** cancelled", allowed_other_chars=[]):
 		try:
 			respint = None
 			if defaultvalue is not None:
 				prompt = prompt + " [" + str(defaultvalue) + "] "
 
 			while respint is None and retry_until_valid:
+				resp = None
 				try:
 					resp = input(prompt).lower().strip()
 
@@ -401,6 +403,9 @@ class Terminal:
 							respint = None
 							cls.print_warning("* Number outside of allowed range")
 				except ValueError as e:
+					if len(resp) == 1 and resp in allowed_other_chars:
+						return resp
+
 					cls.print_warning("* Not a valid number")
 
 			if respint is None and defaultvalue is not None:
@@ -419,7 +424,7 @@ class Terminal:
 	# helper function for simple text-based "type number of your selection and press enter" menus
 	# 
 	@classmethod
-	def numbermenu(cls, prompt, choices, defaultindex=None, *, title="Select an option", format_str="%s", format_fields=None, allow_ctrlc=True, instructions=None, return_index=False, clear_on_finish=True, on_print_option=None, hidden_options={}, indent_options=2):
+	def numbermenu(cls, prompt, choices, defaultindex=None, *, title="Select an option", format_str="%s", format_fields=None, allow_ctrlc=True, ctrlc_returns=None, instructions=None, return_index=False, clear_on_finish=True, on_print_option=None, hidden_options={}, indent_options=2, add_exit_item=False, exit_returns=None, exit_str="Exit"):
 		choices = [c for c in choices if c is not None]
 		running = True
 
@@ -467,15 +472,21 @@ class Terminal:
 						printed = True
 				if not printed:
 					print((" " * indent_options) + f"{i+1}. {format_option(i)}")
+			if add_exit_item:
+				print((" " * indent_options) + f"x. {exit_str}")
+
 			print()
 
 			# input prompt
 			inputprompt = ">"
 			# if defaultindex and type(defaultindex) is int:
 			# 	inputprompt = f"[{defaultindex+1}] > "
-			selection = cls.input_int(inputprompt, (defaultindex+1), within=[1, len(choices)], allow_ctrlc=True)
+			selection = cls.input_int(inputprompt, (defaultindex+1), within=[1, len(choices)], allow_ctrlc=True, allowed_other_chars=["x"])
 			if selection:
 				running = False
+				if type(selection) is str and add_exit_item:
+					return exit_returns
+
 				return choices[selection-1]
 			else:
 				running = False
