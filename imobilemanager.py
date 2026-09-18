@@ -2514,6 +2514,11 @@ class IMDApp:
 									term.print("Make sure the device is plugged in and unlocked, or in recovery mode, and try again.")
 									print()
 									term.pause(prompt="Press any key to return to the device menu...")
+							case "j":
+								term.screen(f"Raw data: {selection.model_name} - {selection.serial_number}", clear_scroll_buffer=True)
+								selection.dump_info(dump_summary=True, dump_details=True, to_file=True, to_stdout=True, summary_filename=None, details_filename=None, summary_to_stdout=False)
+								print()
+								term.pause(prompt="Press any key to return to the device menu...")
 							case "#": # REPL mode
 								cls.device_repl_loop(selection)
 				elif type(selection) is tuple:
