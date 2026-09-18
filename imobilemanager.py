@@ -17,10 +17,11 @@
 #   need to catch this message and notify the user
 #   	
 # - all TODOs
-# - hotkey in jobs queue view - restart all failed jobs
-# 	- purge finished jobs should offer to leave failed jobs in the queue, if there were any that failed
 # - staggered start for restore jobs? don't start them all at once, but wait a lil between starting each one
-# 
+# - (fixed, test) crash bug if no restore log file has been generated yet and user tries to view
+# 	- occurs if the device must be rebooted into recovery mode first; no log is created until idevicerestore is invoked
+# 	- need to write a dummy log file in this case so something is there to indicate that things are happening
+# 	- idevicerestore will need to be able to append to this same file (do NOT overwrite it!)
 
 import difflib, enum, json, logging, os, platform, random, re, shutil, subprocess, sys, tarfile, tempfile, textwrap, webbrowser, zipfile
 from base64 import b64decode
@@ -1873,21 +1874,26 @@ class IMDRestoreManager:
 		def run(self, device: Device):
 			self._device = device
 			self._running = True
+			self._logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{device.serial_number}-{strftime("%H.%M.%S")}.log")
 
 			term.print_warning("* Beginning restore operation for device %s" % device.identifier)
 			self._starttime = time()
 
 			if device.bootmode == "normal":
+				with open(self._logfile, "a") as log:
+					log.write(f"{APP_NAME} {APP_VERSION}\nDevice: {device.identifier}\nWaiting for device to enter recovery mode...")
+
 				if (entered_recovery := device.enter_recovery(wait=True)):
 					# hell ya
-					pass
+					with open(self._logfile, "a") as log:
+						log.write(f"Device entered recovery mode!  Invoking idevicerestore")
 				else:
 					# hell nah
 					term.print_error(f"* Unable to put device {device.identifier} in recovery mode; try doing it manually and attempt the restore again")
 					self._returncode = -1
+					with open(self._logfile, "a") as log:
+						log.write(f"Could not enter recovery mode -- try doing it manually")
 					return False
-
-			self._logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{device.serial_number}-{strftime("%H.%M.%S")}.log")
 
 			# begin restore process
 			self._returncode = device.restore(logfile=self._logfile, suppress_msgs=True)
