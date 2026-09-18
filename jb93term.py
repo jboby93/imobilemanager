@@ -1190,6 +1190,9 @@ class Terminal:
 			with open(filename, "r") as f:
 				helptext = f.read()
 
+			for rkey in replacements:
+				helptext = helptext.replace(f"{{{rkey}}}", replacements[rkey])
+
 			helpsections = helptext.split("$SECTION$\n")
 
 			if reverse_lines:
@@ -1209,7 +1212,7 @@ class Terminal:
 			termwidth, termheight = shutil.get_terminal_size((80, 20)) 
 
 			cls.print("LEFT/RIGHT - change section | UP/DOWN - scroll on page", color="green", bgcolor=background_color, word_wrap=False)
-			if not use_homeend_scrolling:
+			if use_homeend_scrolling:
 				cls.print("HOME - go to Beginning of document", color="green", bgcolor=background_color, word_wrap=False)
 			else:
 				pass
@@ -1270,8 +1273,8 @@ class Terminal:
 			# cls.pause()
 			for s in showthis:
 				strn = s
-				for rkey in replacements:
-					strn = s.replace(f"{{{rkey}}}", replacements[rkey])
+				# for rkey in replacements:
+				# 	strn = s.replace(f"{{{rkey}}}", replacements[rkey])
 				# strn = s.replace("{app_name}", app_name)
 				if strn.lstrip()[0:3] == "== ": # header line
 					cls.print(strn.lstrip()[3:], color="lightblue", bgcolor=background_color, word_wrap=False)
