@@ -2217,6 +2217,7 @@ class IMDApp:
 				f"      Boot: {device.bootmode}",
 				f"    iCloud: {device.icloud_account if device.icloud_locked else "not signed in"}",
 				f"  Language: {locale["Language"] if locale else "n/a"}",
+				f" Activated: {"yes" if device.is_activated else "no"}",
 				"",
 				f" LINQ Code: {device.linq_im_code}",
 				""
@@ -2276,6 +2277,7 @@ class IMDApp:
 		locale = device.get_locale_info()
 		if locale:
 			term.print_labelled("  Language", locale["Language"])
+		term.print_labelled(" Activated", "yes" if device.is_activated else "no")
 
 		print()
 		term.print_labelled(f" LINQ code", device.linq_im_code, color="magenta")
@@ -2477,6 +2479,18 @@ class IMDApp:
 
 			if not term.input_yn("Inspect these devices?"):
 				return
+
+		def validate_device(device, allow_recovery=False) -> bool:
+			if device.is_restoring:
+				term.modalalert("Invalid action", f"The device {device.model_name} [{device.serial_number}] is currently being restored.", buttons=term.ModalButtons.OK, clear_on_start=False, allow_esc_cancel=True)
+				return False
+
+			if device.bootmode != "normal" and not allow_recovery:
+				term.modalalert("Invalid action", f"The device {device.model_name} [{device.serial_number}] is in Recovery Mode.", buttons=term.ModalButtons.OK, clear_on_start=False, allow_esc_cancel=True)
+				return False
+
+			return True
+
 		
 		instructions = [
 			"L: rename        Q: show QRs       E: erase device(s)",
@@ -2501,6 +2515,7 @@ class IMDApp:
 			"a": "app-viewer",
 			"#": "repl",
 			"h": "help",
+			"*": "activate",
 			"backspace": "quit"
 		}
 
@@ -2605,6 +2620,23 @@ class IMDApp:
 									device.restart()
 								else:
 									device.exit_recovery()
+						case "activate":
+							if device.is_restoring:
+								term.modalalert("Invalid action", f"The device {device.model_name} [{device.serial_number}] is currently being restored and cannot be activated.", buttons=term.ModalButtons.OK, clear_on_start=False, allow_esc_cancel=True)
+								continue
+
+							if device.bootmode != "normal":
+								term.modalalert("Invalid action", f"The device {device.model_name} [{device.serial_number}] is in Recovery Mode and cannot be activated.", buttons=term.ModalButtons.OK, clear_on_start=False, allow_esc_cancel=True)
+								continue
+
+							if term.modalalert("Confirm action", f"The device {device.model_name} [{device.serial_number}] will attempt activation with Apple.", buttons=term.ModalButtons.OKCANCEL, default_button=1, clear_on_start=False, allow_esc_cancel=True):
+								term.screen("Activating device %s [%s]" % (device.name, device.model_name))
+								if device.activate():
+									pass
+								else:
+									pass
+
+								term.pause()
 						case "rename":
 							if device.is_restoring:
 								term.modalalert("Invalid action", f"The device {device.model_name} [{device.serial_number}] is currently being restored and cannot be renamed.", buttons=term.ModalButtons.OK, clear_on_start=False, allow_esc_cancel=True)
