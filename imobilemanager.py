@@ -2474,6 +2474,7 @@ class IMDApp:
 			"p": "ping",
 			"a": "app-viewer",
 			"#": "repl",
+			"h": "help",
 			"backspace": "quit"
 		}
 
@@ -2601,6 +2602,8 @@ class IMDApp:
 							cls.view_devices(rescan=True, skip_inspect_prompt=True)
 						case "repl":
 							cls.device_repl_loop(device)
+						case "help":
+							term.textreader(f"{APP_NAME} - Help / About", "in-app-help.txt", replacements={"app_name": APP_NAME}, gotosection=5)
 						case "ping":
 							term.screen(f"{APP_NAME} - Pinging device {device.model_name} - {device.serial_number or device.ecid}")
 							term.print_msg(f"Searching for device {device.serial_number or device.ecid}")
