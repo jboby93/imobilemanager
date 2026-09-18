@@ -680,11 +680,37 @@ class Device(Mapping[str, Any]):
 
 	def shutdown(self):
 		term.print_warning(f"[{self.serial_number or self.ecid}] sending shutdown command to device")
-		rtn, output = _libimd("idevicediagnostics", "--udid", self.udid, "shutdown")
+		if self._in_recovery:
+			term.print_warning(f"* device in recovery; sending normal-boot command to device")
+			rtn, output = _libimd("irecovery", "--ecid", self.ecid, "--normal")
+		else:
+			rtn, output = _libimd("idevicediagnostics", "--udid", self.udid, "shutdown")
 
 	def restart(self):
 		term.print_warning(f"[{self.serial_number or self.ecid}] sending restart command to device")
-		rtn, output = _libimd("idevicediagnostics", "--udid", self.udid, "restart")
+		if self._in_recovery:
+			term.print_warning(f"* device in recovery; sending normal-boot command to device")
+			rtn, output = _libimd("irecovery", "--ecid", self.ecid, "--normal")
+		else:
+			rtn, output = _libimd("idevicediagnostics", "--udid", self.udid, "restart")
+
+	def activate(self):
+		term.print_warning(f"[{self.serial_number or self.ecid}] sending activate command to device")
+		rtn, output = _libimd("ideviceactivation", "activate", "--udid", self.udid)
+
+		print(output)
+		print(f"Return code: {rtn}")
+
+		return rtn == 0
+
+	def deactivate(self):
+		term.print_warning(f"[{self.serial_number or self.ecid}] sending deactivate command to device")
+		rtn, output = _libimd("ideviceactivation", "deactivate", "--udid", self.udid)
+
+		print(output)
+		print(f"Return code: {rtn}")
+
+		return rtn == 0
 
 	def prevent_erase(self):
 		self._restore_protection = True
