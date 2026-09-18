@@ -253,11 +253,13 @@ class Terminal:
 	
 	# clears the terminal window
 	@classmethod
-	def clear(cls, *, bgcolor=None):
+	def clear(cls, *, bgcolor=None, clear_scroll_buffer=False):
+		eid = "\033[" + ("3J\033[J" if clear_scroll_buffer else "J")
+
 		if bgcolor:
-			print("\033[H" + cls.bgcolors[bgcolor] + "\033[J", end="")
+			print("\033[H" + cls.bgcolors[bgcolor] + eid, end="")
 		else:
-			print("\033[H\033[J", end="")
+			print("\033[H" + eid, end="")
 
 	# bell audio cue
 	@classmethod
@@ -279,8 +281,8 @@ class Terminal:
 
 	# clears screen and draws a title bar on the top line
 	@classmethod
-	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black"):
-		cls.clear(bgcolor=bgcolor)
+	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black", clear_scroll_buffer=True):
+		cls.clear(bgcolor=bgcolor, clear_scroll_buffer=clear_scroll_buffer)
 
 		screensize = shutil.get_terminal_size((80, 20))
 		print(cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + "\033[E" + cls._reset() + "\n")
