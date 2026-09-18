@@ -281,11 +281,13 @@ class Terminal:
 
 	# clears screen and draws a title bar on the top line
 	@classmethod
-	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black", clear_scroll_buffer=True):
+	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black", clear_scroll_buffer=True, newline=True):
 		cls.clear(bgcolor=bgcolor, clear_scroll_buffer=clear_scroll_buffer)
 
 		screensize = shutil.get_terminal_size((80, 20))
-		print(cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + "\033[E" + cls._reset() + "\n")
+		print(cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + "\033[E" + cls._reset())
+		if newline:
+			print()
 
 	@classmethod
 	def cursor_pos(cls, x, y, *, returncode=False):
@@ -1210,16 +1212,16 @@ class Terminal:
 				raise e
 		
 		while running:
-			cls.screen(title, bgcolor=background_color, barcolor=titlebar_bg, textcolor=titlebar_fg)
+			cls.screen(title, bgcolor=background_color, barcolor=titlebar_bg, textcolor=titlebar_fg, newline=False)
 			termwidth, termheight = shutil.get_terminal_size((80, 20)) 
 
 			cls.print("LEFT/RIGHT - change section | UP/DOWN - scroll on page", color="green", bgcolor=background_color, word_wrap=False)
 			if use_homeend_scrolling:
-				cls.print("HOME - go to Beginning of document", color="green", bgcolor=background_color, word_wrap=False)
+				cls.print("HOME - go to top / END - go to bottom", color="green", bgcolor=background_color, word_wrap=False)
 			else:
 				pass
 			if use_pageupdown:
-				pass
+				cls.print("PGUP/PGDOWN - scroll to previous or next screen", color="green", bgcolor=background_color, word_wrap=False)
 			cls.print("Press Q or CTRL+C to return", color="green", bgcolor=background_color, word_wrap=False)
 			cls.print(("=" * (termwidth - 2)), color=text_color, bgcolor=background_color, word_wrap=False)
 
