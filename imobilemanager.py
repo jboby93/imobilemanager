@@ -3034,7 +3034,7 @@ class IMDApp:
 				print()
 				if job[0].done():
 					term.print_labelled(" Exitcode", job[2].returncode)
-					term.print_labelled("   Result", "success" if job[2].returncode == 0 else "error")
+					term.print_labelled("   Result", "success" if job[2].succeeded else "error")
 					term.print_labelled(" Finished", strftime("%D %I:%M:%S %p", localtime(job[2].endtime)))
 					term.print_labelled(" Duration", job[2].duration)
 
