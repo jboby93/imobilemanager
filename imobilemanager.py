@@ -5,13 +5,6 @@
 # power to open-source software
 # 
 # more info to come
-# TODO:
-# - BUG: iPhone 13 Pro Max - unable to succesfully restore device
-#   (in progress)
-#   "device didn't accept BasebandData" -> "Unable to successfully restore device"
-#   process can still return exit code 0 indicating success in these cases!!
-#   need to find a "magic string" in a successful restore log; if the job finishes and the log contains that phrase, it was successful
-#   	- could also show most recent 10 lines on job summary
 #   	
 # - when device can't communicate because it hasn't trusted the computer yet, a specific message appears from idevice_id/ideviceinfo
 #   need to catch this message and notify the user
@@ -1953,6 +1946,13 @@ class IMDRestoreManager:
 			# 	return "SUCCESS"
 			# else:
 			# 	pass
+			# 	
+		
+		def get_restore_log_tail(self, lines=10):
+			with open(self._logfile, "r") as log:
+				logtext = log.read()
+
+			return "\n".join(logtext.split("\n")[-lines:])
 
 		@property
 		def running(self):
@@ -3038,6 +3038,12 @@ class IMDApp:
 					term.print_labelled(" Finished", strftime("%D %I:%M:%S %p", localtime(job[2].endtime)))
 					term.print_labelled(" Duration", job[2].duration)
 
+					print()
+
+					# show last 10 lines of restore log
+					term.print_warning("Most recent messages from restore log:")
+					logtail = job[2].get_restore_log_tail(10)
+					print(logtail)
 					print()
 
 				term.pause()
