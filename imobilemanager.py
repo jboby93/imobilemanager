@@ -6,6 +6,16 @@
 # 
 # more info to come
 # TODO:
+# - BUG: iPhone 13 Pro Max - unable to succesfully restore device
+#   (in progress)
+#   "device didn't accept BasebandData" -> "Unable to successfully restore device"
+#   process can still return exit code 0 indicating success in these cases!!
+#   need to find a "magic string" in a successful restore log; if the job finishes and the log contains that phrase, it was successful
+#   	- could also show most recent 10 lines on job summary
+#   	
+# - when device can't communicate because it hasn't trusted the computer yet, a specific message appears from idevice_id/ideviceinfo
+#   need to catch this message and notify the user
+#   	
 # - all TODOs
 # - hotkey in jobs queue view - restart all failed jobs
 # 	- purge finished jobs should offer to leave failed jobs in the queue, if there were any that failed
@@ -1832,6 +1842,7 @@ class IMDRestoreManager:
 			self._returncode = None
 			self._starttime = None
 			self._endtime = None
+			self._success = None
 		
 		def run(self, device: Device):
 			self._device = device
@@ -1864,9 +1875,16 @@ class IMDRestoreManager:
 			if future.cancelled():
 				term.print_error("* Restore cancelled for %s; this device may be in an unusable state!" % self.device_id)
 			elif future.done():
+				self._success = self.verify_result()
+
 				if self.returncode == 0:
-					pass
-					# term.print_labelled("* Restore finished", f"{self.device_id}\n", color="green")
+					if not self._success:
+						term.print_labelled("* Restore FAILED", f"{self.device_id}\n", color="yellow")
+						term.print("Please check the logfile for this restore process to see what went wrong:")
+						term.print("  " + self._logfile)
+					else:
+						# term.print_labelled("* Restore finished", f"{self.device_id}\n", color="green")
+						pass
 				else:
 					term.print_labelled("* Restore FAILED", f"{self.device_id}\n", color="yellow")
 					term.print("Please check the logfile for this restore process to see what went wrong:")
@@ -1876,6 +1894,33 @@ class IMDRestoreManager:
 					self._result = future.result(timeout=5)
 				except TimeoutError as te:
 					term.print_error("* Restore may have finished, but unable to get result?")
+
+		# checks the log file following a restore process to find error messages
+		# 
+		# # BUG: iPhone 13 Pro Max - unable to succesfully restore device
+		#   "device didn't accept BasebandData" -> "Unable to successfully restore device"
+		#   process will still return exit code 0 indicating success in these cases!!
+		#   need to find a "magic string" in a successful restore log; if the job finishes and the log contains that
+		#   phrase, it was successful
+		#   	- could also show most recent 10 lines on job summary
+		#  
+		# returns:
+		# - True if restore was actually successful, False otherwise
+		def verify_result(self) -> str:
+			with open(self._logfile, "r") as log:
+				logtext = log.read()
+
+			# success message appears on -3rd line (3rd from bottom)
+			# error messages may be a few more lines up
+			# 
+			# so let's get the last 10 lines of the restore log and test that
+			logtail = "\n".join(logtext.split("\n")[-10:])
+
+			return ("<Info> Status: Restore Finished" in logtail)
+			# if "<Info> Status: Restore Finished" in logtail:
+			# 	return "SUCCESS"
+			# else:
+			# 	pass
 
 		@property
 		def running(self):
@@ -1896,6 +1941,10 @@ class IMDRestoreManager:
 		@property
 		def returncode(self):
 			return self._returncode
+
+		@property
+		def succeeded(self):
+			return self._success
 		
 		@property
 		def logfile(self):
@@ -2810,7 +2859,7 @@ class IMDApp:
 			elif job[0].cancelled():
 				status = "cancelled"
 			elif job[0].done():
-				if job[2].returncode == 0:
+				if job[2].returncode == 0 and job[2].succeeded:
 					status = "done [success]"
 				else:
 					status = f"done [failed: {job[2].returncode}]"
