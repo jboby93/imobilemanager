@@ -778,7 +778,7 @@ class Device(Mapping[str, Any]):
 
 		rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}", "--cache-path", IMobileDevice.get_ipsw_path(), timeout=9001, restore_job=True)
 
-	def restore(self, *, logfile=None, suppress_msgs=False) -> int | None:
+	def restore(self, *, logfile=None, suppress_msgs=False, ignore_errors=False) -> int | None:
 		# can always use device ECID to target for restore
 		# idevicerestore --ecid [ECID] --restore-mode --erase --no-input --plain-progress [PATH to ipsws]
 		# 
@@ -795,15 +795,21 @@ class Device(Mapping[str, Any]):
 			logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number}-{strftime("%H.%M.%S")}.log")
 
 		ipsw = self.get_restore_ipsw_filename()["fullpath"] or IMobileDevice.get_ipsw_path()
+		args = ["idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}"]
+		if ignore_errors:
+			args.append("--ignore-errors")
+		args.append(ipsw)
 
-		rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}", ipsw, timeout=9001, restore_job=True)
+		rtn, _ = _libimd(*args, timeout=9001, restore_job=True)
+		# rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}", ipsw, timeout=9001, restore_job=True)
 
 		self._is_recovering = False
 		endtime = time()
 		logger.debug("restore process completed in %d minutes" % (round(int(endtime - starttime) / 60, 2)))
 
 		if rtn == 0:
-			term.print_success(f"\n[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes\n")
+			# term.print_success(f"\n[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes\n")
+			pass
 		else:
 			term.print_warning(f"\n[{self.serial_number or self.ecid}] restore FAILED in {round(int(endtime - starttime) / 60, 2)} minutes\n")
 			term.print_warning(f"* please check the logfile for this device: {logfile}")
@@ -1791,7 +1797,7 @@ class IMDRestoreManager:
 	# __enter__ and __exit__ are used to allow a class to be used in a with statement
 	# 
 
-	def submit_job(self, device: Device):
+	def submit_job(self, device: Device, *, ignore_errors=False):
 		# executor.submit(...).add_done_callback(fn)
 		# fn - callback with the future itself as the only argument
 		# - if the function returns Device, argument will be Device
@@ -1800,7 +1806,7 @@ class IMDRestoreManager:
 			term.print_warning("Already a known job for this device! %s" % device.identifier)
 			# return None
 
-		future = self._executor.submit((restorejob := IMDRestoreManager.Job(device.identifier)).run, device)
+		future = self._executor.submit((restorejob := IMDRestoreManager.Job(device.identifier)).run, device, ignore_errors)
 		future.add_done_callback(restorejob.on_completed)
 
 		self.jobs[device.identifier.ecid] = (future, device.identifier, restorejob)
@@ -1837,18 +1843,6 @@ class IMDRestoreManager:
 				c += 1
 		return c
 
-	# unneeded; jobs are started when submitted if there are available workers to take them
-	# 
-	# def start(self):
-	# 	for future in as_completed([self.jobs[devid] for devid in self.jobs]):
-	# 		try:
-	# 			future.result()
-	# 		except Exception as e:
-	# 			term.print_error(f"{e}")
-		
-	# 	# at this point, all done!
-	# 	pass
-
 	# class for jobs? or a simple function with DeviceID arg?
 	class Job:
 		def __init__(self, deviceid: DeviceID, *, erase_restore=True):
@@ -1863,9 +1857,11 @@ class IMDRestoreManager:
 			self._starttime = None
 			self._endtime = None
 			self._success = None
+			self._ignore_errors = False
 		
-		def run(self, device: Device):
+		def run(self, device: Device, ignore_errors: bool):
 			self._device = device
+			self._ignore_errors = ignore_errors
 			self._running = True
 			self._logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{device.serial_number}-{strftime("%H.%M.%S")}.log")
 
@@ -1889,7 +1885,7 @@ class IMDRestoreManager:
 					return False
 
 			# begin restore process
-			self._returncode = device.restore(logfile=self._logfile, suppress_msgs=True)
+			self._returncode = device.restore(logfile=self._logfile, suppress_msgs=True, ignore_errors=ignore_errors)
 
 			self._running = False
 			self._endtime = time()
@@ -2864,7 +2860,7 @@ class IMDApp:
 
 		print()
 		term.print_msg("Please review the output above to make sure that this is what you want.")
-		term.print_warning("If you proceed, THESE DEVICES WILL BE ERASED AND RESTORED.")
+		term.print_warning("If you proceed, THE DEVICES LISTED ABOVE WILL BE ERASED AND RESTORED.  ALL DATA ON THESE DEVICES WILL BE LOST.")
 		print()
 		verification_can = random.choice([
 			"Lobotomize me, captain!",
@@ -2873,7 +2869,8 @@ class IMDApp:
 			"Restore machine go brrr",
 			"iOS go bye bye",
 			"Time to eat your Apples!",
-			"Glory in the name of Jobs"
+			"Glory in the name of Jobs",
+			"sudo rm -rf /"
 		])
 		term.print_labelled("To proceed, type the following phrase", verification_can)
 
@@ -2973,11 +2970,25 @@ class IMDApp:
 							cancelled = job[0].cancel()
 					case "restart":
 						if job[2].device and job[0].done():
-							if term.modalalert("Confirm job restart", "Are you SURE you want to restart this restore job?  This may not always succeed.", clear_on_start=False, buttons=term.ModalButtons.YESNO, default_button=1, allow_esc_cancel=True, allow_ctrlc=True):
+							resp = term.modalalert("Confirm job restart", "Are you SURE you want to restart this restore job?  This may not always succeed.", clear_on_start=False, default_button=2, allow_esc_cancel=True, allow_ctrlc=True, buttons=[
+								{
+									"label": "Yes",
+									"value": "restart"
+								},
+								{
+									"label": "Ignore errors",
+									"value": "ignore-errors"
+								},
+								{
+									"label": "Cancel",
+									"value": "cancel"
+								}
+							])
+							if resp != "cancel":
 								term.modalalert("Cancelling existing job...", "This can take up to 30 seconds.", clear_on_start=False, no_user_interaction=True)
 								cancelled = job[0].cancel()
 								term.modalalert("Restarting job...", "The restore job is being restarted.")
-								cls.restorer.submit_job(job[2].device)
+								cls.restorer.submit_job(job[2].device, ignore_errors=(resp=="ignore-errors"))
 						else:
 							term.modalalert("Unable to restart", "An error occurred while attempting to restart this job.  Quit this script and try again.")
 					case "purge-finished":
