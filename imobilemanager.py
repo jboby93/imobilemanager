@@ -3071,7 +3071,7 @@ class IMDApp:
 					# show last 10 lines of restore log
 					term.print_warning("Most recent messages from restore log:")
 					logtail = job[2].get_restore_log_tail(10)
-					print(logtail)
+					print(term._color(fg="gray") + logtail + term._reset())
 					print()
 
 				term.pause()
