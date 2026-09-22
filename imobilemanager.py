@@ -792,7 +792,7 @@ class Device(Mapping[str, Any]):
 			term.print_warning(f"\n[{self.serial_number or self.ecid}] beginning restore process")
 
 		if not logfile:
-			logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number}-{strftime("%H.%M.%S")}.log")
+			logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number or self.ecid}-{strftime("%H.%M.%S")}.log")
 
 		ipsw = self.get_restore_ipsw_filename()["fullpath"] or IMobileDevice.get_ipsw_path()
 		args = ["idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}"]
@@ -1863,7 +1863,7 @@ class IMDRestoreManager:
 			self._device = device
 			self._ignore_errors = ignore_errors
 			self._running = True
-			self._logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{device.serial_number}-{strftime("%H.%M.%S")}.log")
+			self._logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{device.serial_number or device.ecid}-{strftime("%H.%M.%S")}.log")
 
 			term.print_warning("* Beginning restore operation for device %s" % device.identifier)
 			self._starttime = time()
