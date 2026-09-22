@@ -1540,6 +1540,12 @@ class IMobileDevice:
 						)
 
 				cls.LIBRARY_PATH = normalize_path(cls.PROGRAM_PATH, "libs")
+
+				if force_reinstall:
+					# delete the existing libs folder and recreate it
+					shutil.rmtree(cls.LIBRARY_PATH)
+					os.makedirs(cls.LIBRARY_PATH)
+
 				cls.LIBIMOBILEDEVICE_PATH = normalize_path(cls.LIBRARY_PATH, "libimobiledevice")
 				# cls.LOG_PATH = normalize_path(cls.PROGRAM_PATH, "logs", date.today())
 
@@ -1579,7 +1585,7 @@ class IMobileDevice:
 
 				installsh = urlretrieve(libmobiledevice_url, os.path.join(cls.PROGRAM_PATH, "limd-build-macos.sh"))
 				libqrencode_path = cast(str, system("which", "qrencode")[1])
-				if str(system("which", "irecovery")[1]) in ["", "irecovery not found"]:
+				if str(system("which", "irecovery")[1]) in ["", "irecovery not found"] or force_reinstall:
 					installsh_ex = installsh[0]
 					# with open(installsh, "rb") as file:
 					# 	print(str(file_digest(file, "sha256").hexdigest()))
@@ -1590,7 +1596,7 @@ class IMobileDevice:
 				if use_which:
 					cls.LIBIMOBILEDEVICE_PATH = os.path.dirname(str(system("which", "irecovery")[1]))
 
-				if system("which", "qrencode")[1] == "qrencode not found" if use_which else not os.path.isfile(normalize_path(cls.LIBQRENCODE_PATH, "qrencode")):
+				if (system("which", "qrencode")[1] == "qrencode not found" if use_which else not os.path.isfile(normalize_path(cls.LIBQRENCODE_PATH, "qrencode"))) or force_reinstall:
 					term.print_msg("  Downloading libqrencode...")
 					system("brew", "install", "libqrencode")
 				if use_which:
@@ -1606,10 +1612,20 @@ class IMobileDevice:
 				if not os.path.isfile(normalize_path(cls.LIBIMOBILEDEVICE_PATH, "irecovery")):
 					term.print_msg("  Downloading libimobiledevice...")
 					system("sudo", "apt-get", "install", "usbmuxd", "libimobiledevice6", "libimobiledevice-utils", interactive=True)
+				elif force_reinstall:
+					term.print_msg("  Removing current libimobiledevice...")
+					system("sudo", "apt-get", "remove", "usbmuxd", "libimobiledevice6", "libimobiledevice-utils", interactive=True)
+					term.print_msg("  Downloading libimobiledevice...")
+					system("sudo", "apt-get", "install", "usbmuxd", "libimobiledevice6", "libimobiledevice-utils", interactive=True)
 
 				cls.LIBQRENCODE_PATH = cls.LIBIMOBILEDEVICE_PATH # Same installation path
 				cls.LIBQRENCODE_EXE = "qrencode"
 				if not os.path.isfile(normalize_path(IMobileDevice.LIBQRENCODE_PATH, "qrencode")):
+					term.print_msg("  Downloading libqrencode...")
+					system("sudo", "apt-get", "install", "libqrencode", interactive=True)
+				elif force_reinstall:
+					term.print_msg("  Removing current libqrencode...")
+					system("sudo", "apt-get", "remove", "libqrencode", interactive=True)
 					term.print_msg("  Downloading libqrencode...")
 					system("sudo", "apt-get", "install", "libqrencode", interactive=True)
 			case _:
@@ -3096,6 +3112,7 @@ class IMDApp:
 				{"label": "ERASE DEVICES - idevicerestore", "function": "wipe", "requires_scan": True},
 				{"label": "ERASE DEVICES - cfgutil (macOS only)", "function": "wipe-appl", "requires_scan": True, "platform": "Darwin"},
 				{"label": "Update data sources", "function": "update-data"},
+				{"label": "Update/reinstall runtimes", "function": "update-deps"},
 				{"label": "Help / About", "function": "help"}
 				# {"label": "Exit", "function": "exit"}
 			]
