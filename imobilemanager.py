@@ -2504,6 +2504,7 @@ class IMDApp:
 
 		hotkeys = {
 			"e": "erase",
+			"shift-e": "erase-ignore-errors",
 			"r": "restart",
 			"s": "shutdown",
 			"q": "qrcodes",
@@ -2569,8 +2570,8 @@ class IMDApp:
 					device = cls.active_devices[selection[0]]
 
 					match selection[1]:
-						case "erase":
-							devselection = cls.select_devices("Choose one or more devices to ERASE and RESTORE to factory settings.", "Restore device(s)", confirm_with_c=True, hazard_menu=True)
+						case "erase" | "erase-ignore-errors":
+							devselection = cls.select_devices("Choose one or more devices to ERASE and RESTORE to factory settings." + ("" if not (selection[1]=="erase-ignore-errors") else "\n\nErrors that occur during the restore will be IGNORED if possible -- this may lead to unexpected results!"), "Restore device(s)", confirm_with_c=True, hazard_menu=True)
 							if not devselection:
 								continue
 
@@ -2578,7 +2579,7 @@ class IMDApp:
 								logger.info("user confirmed wipe of devices")
 								
 								for dev in devselection:
-									cls.restorer.submit_job(dev)
+									cls.restorer.submit_job(dev, ignore_errors=(selection[1]=="erase-ignore-errors"))
 
 								print()
 								term.print_success("* Restore jobs have been submitted *")
