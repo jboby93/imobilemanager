@@ -280,14 +280,40 @@ class Terminal:
 			print()
 
 	# clears screen and draws a title bar on the top line
+	# 
+	# update_title_only - redraws the title bar without clearing screen contents; cursor position is restored when done
 	@classmethod
-	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black", clear_scroll_buffer=True, newline=True):
-		cls.clear(bgcolor=bgcolor, clear_scroll_buffer=clear_scroll_buffer)
-
+	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black", clear_scroll_buffer=True, newline=True, update_title_only=False):
 		screensize = shutil.get_terminal_size((80, 20))
-		print(cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + "\033[E" + cls._reset())
-		if newline:
-			print()
+
+		if update_title_only:
+			cls.cursor_savepos()
+			print("\033[H" + cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + "\033[E" + cls._reset())
+			cls.cursor_restorepos()
+		else:
+			cls.clear(bgcolor=bgcolor, clear_scroll_buffer=clear_scroll_buffer)
+
+			print(cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + "\033[E" + cls._reset())
+			if newline:
+				print()
+
+	# draws a status bar to the last row in the terminal window
+	# 
+	# clear=True => removes the status bar (clears the line containing it)
+	# 
+	@classmethod
+	def statusbar(cls, strn, *, barcolor="gray", textcolor="black", clear=False):
+		screensize = shutil.get_terminal_size((80, 20))
+
+		cls.cursor_savepos()
+		cls.cursor_pos(screensize[1], 1)
+
+		if clear:
+			cls.cursor_clearline(2)
+		else:
+			print(cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + cls._reset(), end="")
+
+		cls.cursor_restorepos()
 
 	@classmethod
 	def cursor_pos(cls, x, y, *, returncode=False):
@@ -298,10 +324,32 @@ class Terminal:
 		# print(f"\033[{x}G")
 
 	@classmethod
-	def cursor_col(cls, c, *, returncode=False):
+	def cursor_nextline(cls, n=1, *, returncode=False):
+		if returncode:
+			return f"\033[{n}E"
+		print(f"\033[{n}E", end="")
+
+	@classmethod
+	def cursor_prevline(cls, n=1, *, returncode=False):
+		if returncode:
+			return f"\033[{n}F"
+		print(f"\033[{n}F", end="")
+
+	@classmethod
+	def cursor_col(cls, c=1, *, returncode=False):
 		if returncode:
 			return f"\033[{c}G"
 		print(f"\033[{c}G", end="")
+
+	# n = ...
+	# 0 (default)	clear from cursor to end of line
+	# 1 			clear from cursor to beginning of line
+	# 2 			clear entire line
+	@classmethod
+	def cursor_clearline(cls, n, *, returncode=False):
+		if returncode:
+			return f"\033[{n}K"
+		print(f"\033[{n}K", end="")
 
 	@classmethod
 	def cursor_home(cls, *, returncode=False):

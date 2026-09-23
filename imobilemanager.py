@@ -1909,6 +1909,10 @@ class IMDRestoreManager:
 			return device
 
 		def on_completed(self, future):
+			# fix for text all over the place as threads finish their work (esp. on macOS)
+			# move cursor to beginning of current row
+			term.cursor_col(1)
+
 			if future.cancelled():
 				term.print_error("* Restore cancelled for %s; this device may be in an unusable state!" % self.device_id)
 			elif future.done():
@@ -1920,8 +1924,7 @@ class IMDRestoreManager:
 						term.print("Please check the logfile for this restore process to see what went wrong:")
 						term.print("  " + self._logfile)
 					else:
-						# term.print_labelled("* Restore finished", f"{self.device_id}\n", color="green")
-						pass
+						term.print_labelled("* Restore finished", f"{self.device_id}\n", color="green")
 				else:
 					term.print_labelled("* Restore FAILED", f"{self.device_id}\n", color="yellow")
 					term.print("Please check the logfile for this restore process to see what went wrong:")
@@ -2475,11 +2478,14 @@ class IMDApp:
 				dev.dump_info()
 
 		if len(cls.active_devices) == 0:
+			term.screen(f"{APP_NAME} - No devices detected", update_title_only=True, barcolor="yellow")
 			term.print_warning("* No devices were detected")
 			print()
-			term.print("If you have devices plugged in, make sure they are powered on and unlocked, or in recovery mode.")
+			term.print(f"{APP_NAME} was unable to detect any Apple devices connected to your computer.")
 			print()
-			term.pause()
+			term.print(f"If you have devices plugged in, make sure they are powered on and unlocked, or in recovery mode.")
+			print()
+			term.pause(prompt="Press any key to return to the main menu...")
 			return
 		else:
 			print()
@@ -3177,11 +3183,12 @@ class IMDApp:
 							IMobileDevice.prepare_lookup_dicts(force_reinstall=True)
 							IMobileDevice.ipsw.refresh_device_list()
 						case "update-deps":
-							term.screen("Reinstalling dependencies...")
-							IMobileDevice.prepare_runtime(force_reinstall=True)
-							term.screen("Fetching data sources...")
-							IMobileDevice.prepare_lookup_dicts(force_reinstall=True)
-							IMobileDevice.ipsw.refresh_device_list()
+							if term.modalalert("Confirm action", "You are about to reinstall the packages libimobiledevice and libqrencode; this will also update them if an update is available.  If you are having unexpected issues with restoring or managing devices, this is a good troubleshooting step.  Continue?", buttons=term.ModalButtons.YESNO, default_button=1, clear_on_start=False, allow_esc_cancel=True):
+								term.screen("Reinstalling dependencies...")
+								IMobileDevice.prepare_runtime(force_reinstall=True)
+								term.screen("Fetching data sources...")
+								IMobileDevice.prepare_lookup_dicts(force_reinstall=True)
+								IMobileDevice.ipsw.refresh_device_list()
 						case "view":
 							cls.view_devices(rescan=False)
 						case "help":
