@@ -120,6 +120,7 @@ class IMBrowser:
 	@classmethod
 	def main(cls):
 		term.print_msg("ItemMaster Browser and QR code tool")
+		term.print_labelled("  IMs known", len(cls._im.masters), color="yellow")
 		term.print("Enter search terms to find an Itemmaster code")
 		term.print("Use 2-char code to toggle device/item search:")
 		term.print_labelled("  -d or +d", "Set device search to OFF or ON")
@@ -164,8 +165,14 @@ class IMBrowser:
 					case "-?" | "-h":
 						term.print_labelled("  -d or +d", "Set device search to OFF or ON")
 						term.print_labelled("  -i or +i", "Set accessory search to OFF or ON")
-						term.print_labelled("  -r", "Reload the itemmasters CSV data file", color="yellow") # TODO
+						term.print_labelled("  -r", "Reload the itemmasters CSV data file", color="yellow")
 						term.print_labelled("  -? or -h", "View help and additional commands")
+						term.print_labelled("  exit/q", "Exit the script")
+						continue
+					case "-r":
+						cls._im.load()
+						term.print_success("* Reloaded itemmasters.csv")
+						term.print_labelled("  IMs known", len(cls._im.masters), color="yellow")
 						continue
 
 			selected = cls._im.select(searchfor, search_devices=search_devices, search_items=search_items, favor_code_matches=favor_code_matches)
