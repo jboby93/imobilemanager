@@ -536,13 +536,13 @@ class Device(Mapping[str, Any]):
 		if to_file:
 			if dump_summary:
 				if not summary_filename:
-					summary_filename = f"{IMobileDevice.LOG_PATH}/device-{self.serial_number}.txt"
+					summary_filename = f"{IMobileDevice.LOG_PATH}/device-{self.serial_number or self.ecid}.txt"
 				with open(summary_filename, "w") as f:
 					f.write(IMDApp.print_device_summary(self, as_string=True))
 
 			if dump_details:
 				if not details_filename:
-					details_filename = f"{IMobileDevice.LOG_PATH}/device-{self.serial_number}.json"
+					details_filename = f"{IMobileDevice.LOG_PATH}/device-{self.serial_number or self.ecid}.json"
 				with open(details_filename, "w") as f:
 					f.write(json.dumps(self._info, indent=4))
 
