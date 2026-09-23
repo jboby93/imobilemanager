@@ -306,7 +306,7 @@ class Terminal:
 		screensize = shutil.get_terminal_size((80, 20))
 
 		cls.cursor_savepos()
-		cls.cursor_pos(screensize[1], 1)
+		cls.cursor_pos(1, screensize[1])
 
 		if clear:
 			cls.cursor_clearline(2)
@@ -1231,6 +1231,8 @@ class Terminal:
 		if not theme:
 			theme = {}
 
+		doc_has_sections = False
+
 		# indices
 		section = gotosection
 		lineindex = 0
@@ -1246,6 +1248,7 @@ class Terminal:
 				helptext = helptext.replace(f"{{{rkey}}}", replacements[rkey])
 
 			helpsections = helptext.split("$SECTION$\n")
+			doc_has_sections = len(helpsections) > 1
 
 			if reverse_lines:
 				for i in range(len(helpsections)):
@@ -1309,16 +1312,23 @@ class Terminal:
 				# cls.print_dim("Scroll: %d/%d" % (lineindex, maxscroll))
 				
 				if section > 0:
-					cls.print_dim("Section %d / Scroll: %d/%d" % (section, lineindex, maxscroll))
+					# cls.print_dim("Section %d / Scroll: %d/%d" % (section, lineindex, maxscroll))
+					cls.statusbar("Section %d of %d / Scroll: %d/%d (%d%%)" % (section, len(helpsections)-1, lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
+				elif doc_has_sections:
+					# cls.print_dim("Contents / Scroll: %d/%d" % (lineindex, maxscroll))
+					cls.statusbar("Contents / Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
 				else:
-					cls.print_dim("Contents / Scroll: %d/%d" % (lineindex, maxscroll))
+					cls.statusbar("Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
 			else:
 				# can print it all and be fine
 				if section > 0:
-					cls.print_dim("Section %d of %d" % (section, len(helpsections) - 1))
-				else:
 					# cls.print_dim("Section %d of %d" % (section, len(helpsections) - 1))
-					print()
+					cls.statusbar("Section %d of %d" % (section, len(helpsections) - 1))
+				elif doc_has_sections:
+					cls.statusbar("Contents")
+				# else:
+				# 	# cls.print_dim("Section %d of %d" % (section, len(helpsections) - 1))
+				# 	print()
 
 			# print(helpcontent)
 			# print(showthis)
