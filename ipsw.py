@@ -554,7 +554,7 @@ class IPSWApp:
 	# end menu_select_device()
 	
 	@classmethod
-	def menu_select_firmware(cls, ipsw, device, show_all=False, *, allow_ctrlc=False):
+	def menu_select_firmware(cls, ipsw, device, show_all=False, *, allow_ctrlc=True, dl_queue=[]):
 		try:
 			term.screen(f"{APP_NAME} ({APP_VERSION}) - Select firmware for: {device["device"]}")
 
@@ -576,7 +576,11 @@ class IPSWApp:
 			for i in range(len(firmwares)):
 				if i < 9 and len(firmwares) >= 10:
 					print(" ", end="")
-				print("%d. %s%s (%s)%s%s" % (i+1, term.fgcolors["green"] if firmwares[i]["signed"] else term.fgcolors["yellow"], firmwares[i]["version"], firmwares[i]["buildid"], term._reset(), (f" {term.fgcolors["green"]}(downloaded){term._reset()}" if ipsw.has_local_firmware(device["id"], firmwares[i]["version"]) else "")))
+
+				# see if this firmware version is already queued for download
+				is_queued = len([d for d in dl_queue if d["fw_wants"] == firmwares[i]["version"] and d["id"] == firmwares[i]["identifier"]]) > 0
+				fw_status = f" {term.fgcolors["lightblue"]}(queued){term._reset()}" if is_queued else (f" {term.fgcolors["green"]}(downloaded){term._reset()}" if ipsw.has_local_firmware(device["id"], firmwares[i]["version"]) else "")
+				print("%d. %s%s (%s)%s%s" % (i+1, term.fgcolors["green"] if firmwares[i]["signed"] else term.fgcolors["yellow"], firmwares[i]["version"], firmwares[i]["buildid"], term._reset(), fw_status))
 
 				filesize = round(firmwares[i]["filesize"] / 1024 / 1024 / 1024, 2)
 				filesize_unit = "GB"
@@ -593,15 +597,17 @@ class IPSWApp:
 				return None
 
 			if not show_all and resp == (len(firmwares) + 1):
-				return cls.menu_select_firmware(ipsw, device, True)
+				return cls.menu_select_firmware(ipsw, device, True, allow_ctrlc=allow_ctrlc, dl_queue=dl_queue)
 			else:
 				return firmwares[resp-1]
 		except Exception as e:
 			term.print_error(str(e))
 			term.pause()
 			# raise e
-		except KeyboardInterrupt:
-			return None
+		except KeyboardInterrupt as ke:
+			if allow_ctrlc:
+				return None
+			raise ke
 	# end menu_select_firmware()
 
 	@classmethod
@@ -648,7 +654,7 @@ class IPSWApp:
 				d = cls.menu_select_device(ipsw)
 				if d:
 					if not latest:
-						fw = cls.menu_select_firmware(ipsw, d)
+						fw = cls.menu_select_firmware(ipsw, d, dl_queue=devices)
 						if fw is not False and fw is not None:
 							d["fw_wants"] = fw["version"]
 							devices.append(d)
