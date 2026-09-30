@@ -6,6 +6,7 @@ logs/
 chipid-dict.json
 device_names.json
 idevice_models.json
+itemmasters-*.csv
 hao*
 install*
 notes.txt

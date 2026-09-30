@@ -583,7 +583,7 @@ class Terminal:
 	# 			a tuple:
 	# 				(option that is highlighted when hotkey is pressed, the defined hotkey response, the key, [list of selected indices])
 	@classmethod
-	def menu(cls, prompt, choices, defaultvalue=None, *, title="Select an option", format_str="%s", format_fields=None, initial_index=0, raise_on_invalid_initial_index=True, allow_ctrlc=True, instructions=None, return_index=False, show_pages=True, show_selection=True, clear_on_finish=True, hotkeys={}, on_selection_changed=None, on_print_option=None, quit_keys=["x"], number_selection=False, multiselect=False, titlebar_bg="gray", titlebar_fg="black", bgcolor=None, disable_enter_action=False):
+	def menu(cls, prompt, choices, defaultvalue=None, *, title="Select an option", format_str="%s", format_fields=None, initial_index=0, raise_on_invalid_initial_index=True, allow_ctrlc=True, instructions=None, return_index=False, show_pages=True, show_selection=True, clear_on_finish=True, hotkeys={}, on_selection_changed=None, on_print_option=None, quit_keys=["x"], number_selection=False, multiselect=False, titlebar_bg="gray", titlebar_fg="black", bgcolor=None, disable_enter_action=False, statusbar=False):
 		prompt_lines = prompt.split("\n")
 
 		if type(initial_index) is int:

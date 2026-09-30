@@ -1501,6 +1501,46 @@ class IMobileDevice:
 			term.pause()
 
 	@classmethod
+	def verify_runtime(cls):
+		term.screen("Verifying runtimes...")
+
+		rtn, idinfo_version = _libimd("ideviceinfo", "-v")
+		term.print_labelled("* ideviceinfo", idinfo_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+
+		rtn, ir_version = _libimd("irecovery", "-V")
+		term.print_labelled("* irecovery", ir_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+
+		rtn, idd_version = _libimd("idevicediagnostics", "-v")
+		term.print_labelled("* idevicediagnostics", idd_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+
+		rtn, ida_version = _libimd("ideviceactivation", "-V")
+		term.print_labelled("* ideviceactivation", ir_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+		
+		rtn, ider_version = _libimd("ideviceenterrecovery", "-v")
+		term.print_labelled("* ideviceenterrecovery", ider_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+		
+		rtn, idid_version = _libimd("idevice_id", "-v")
+		term.print_labelled("* idevice_id", idid_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+		
+		rtn, idinst_version = _libimd("ideviceinstaller", "-v")
+		term.print_labelled("* ideviceinstaller", idinst_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+		
+		rtn, idn_version = _libimd("idevicename", "-v")
+		term.print_labelled("* idevicename", idn_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+		
+		rtn, idr_version = _libimd("idevicerestore", "-v")
+		term.print_labelled("* ideviceerestore", idr_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+
+		rtn, qr_version = system(os.path.join(cls.LIBQRENCODE_PATH, cls.LIBQRENCODE_EXE), "-V")
+		term.print_labelled("* qrencode", qr_version.replace("\n", " / "), color="green" if rtn == 0 else "yellow")
+
+		print()
+
+		term.print("If there are any modules listed in yellow, you should use the Update/Reinstall Runtimes option at the main menu.")
+		print()
+		term.pause()
+
+	@classmethod
 	def prepare_runtime(cls, *, force_reinstall=False):
 		term.print_warning("* Verifying dependencies...")
 
@@ -1509,8 +1549,8 @@ class IMobileDevice:
 		match cls.PLATFORM:
 			case "Windows":
 				win_install_to_script_dir = False
-				cls.PROGRAM_PATH = normalize_path(os.path.expanduser("~"), "idevice")
-				cls.LIBRARY_PATH = normalize_path(cls.PROGRAM_PATH, "libs")
+				cls.PROGRAM_PATH = None #normalize_path(os.path.expanduser("~"), "idevice")
+				# cls.LIBRARY_PATH = normalize_path(cls.PROGRAM_PATH, "libs")
 
 				if os.path.exists(normalize_path(os.path.expanduser("~"), "idevice")):
 					cls.PROGRAM_PATH = normalize_path(os.path.expanduser("~"), "idevice")
@@ -1518,7 +1558,27 @@ class IMobileDevice:
 					cls.PROGRAM_PATH = normalize_path(os.path.expanduser("~"), "AppData", "Local", "idevice")
 				elif os.path.exists(normalize_path(os.getcwd(), "idevice")):
 					cls.PROGRAM_PATH = normalize_path(os.getcwd(), "idevice")
-				else:
+		
+				if force_reinstall:
+					if cls.PROGRAM_PATH:
+						cls.LIBRARY_PATH = normalize_path(cls.PROGRAM_PATH, "libs")
+						term.print_labelled("Current install directory", cls.PROGRAM_PATH)
+						if term.input_yn("Change install location?", False):
+							# clear all possible paths
+							if os.path.exists(normalize_path(os.path.expanduser("~"), "idevice", "libs")):
+								shutil.rmtree(normalize_path(os.path.expanduser("~"), "idevice", "libs"))
+							if os.path.exists(normalize_path(os.path.expanduser("~"), "AppData", "Local", "idevice", "libs")):
+								shutil.rmtree(normalize_path(os.path.expanduser("~"), "AppData", "Local", "idevice", "libs"))
+							if os.path.exists(normalize_path(os.getcwd(), "idevice", "libs")):
+								shutil.rmtree(normalize_path(os.getcwd(), "idevice", "libs"))
+
+							cls.PROGRAM_PATH = None
+						else:
+							# clear current path
+							shutil.rmtree(cls.LIBRARY_PATH)
+							os.makedirs(cls.LIBRARY_PATH)
+
+				if not cls.PROGRAM_PATH:
 					cls.PROGRAM_PATH = term.modalalert("Important message", f"It looks like this is your first time running the script.  We need to install a few dependencies first.\n\nThis script uses libimobiledevice and libqrencode, both free and open-source software, for various actions.\n\nYou can install these to your user folder, AppData, or the current directory containing the script files.",
 							buttons=[
 								{
@@ -1541,10 +1601,10 @@ class IMobileDevice:
 
 				cls.LIBRARY_PATH = normalize_path(cls.PROGRAM_PATH, "libs")
 
-				if force_reinstall:
-					# delete the existing libs folder and recreate it
-					shutil.rmtree(cls.LIBRARY_PATH)
-					os.makedirs(cls.LIBRARY_PATH)
+				# if force_reinstall:
+				# 	# delete the existing libs folder and recreate it
+				# 	shutil.rmtree(cls.LIBRARY_PATH)
+				# 	os.makedirs(cls.LIBRARY_PATH)
 
 				cls.LIBIMOBILEDEVICE_PATH = normalize_path(cls.LIBRARY_PATH, "libimobiledevice")
 				# cls.LOG_PATH = normalize_path(cls.PROGRAM_PATH, "logs", date.today())
@@ -3119,6 +3179,7 @@ class IMDApp:
 				{"label": "ERASE DEVICES - cfgutil (macOS only)", "function": "wipe-appl", "requires_scan": True, "platform": "Darwin"},
 				{"label": "Update data sources", "function": "update-data"},
 				{"label": "Update/reinstall runtimes", "function": "update-deps"},
+				{"label": "Verify runtimes", "function": "verify-deps"},
 				{"label": "Help / About", "function": "help"}
 				# {"label": "Exit", "function": "exit"}
 			]
@@ -3189,6 +3250,8 @@ class IMDApp:
 								term.screen("Fetching data sources...")
 								IMobileDevice.prepare_lookup_dicts(force_reinstall=True)
 								IMobileDevice.ipsw.refresh_device_list()
+						case "verify-deps":
+							IMobileDevice.verify_runtime()
 						case "view":
 							cls.view_devices(rescan=False)
 						case "help":
