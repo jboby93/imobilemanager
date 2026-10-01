@@ -1315,19 +1315,29 @@ class Terminal:
 				if section > 0:
 					# cls.print_dim("Section %d / Scroll: %d/%d" % (section, lineindex, maxscroll))
 					cls.statusbar("Section %d of %d / Scroll: %d/%d (%d%%)" % (section, len(helpsections)-1, lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
-					
+					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+						cls.cursor_pos(1, instlines + 1)
+
 				elif doc_has_sections:
 					# cls.print_dim("Contents / Scroll: %d/%d" % (lineindex, maxscroll))
 					cls.statusbar("Contents / Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
+					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+						cls.cursor_pos(1, instlines + 1)
 				else:
 					cls.statusbar("Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
+					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+						cls.cursor_pos(1, instlines + 1)
 			else:
 				# can print it all and be fine
 				if section > 0:
 					# cls.print_dim("Section %d of %d" % (section, len(helpsections) - 1))
 					cls.statusbar("Section %d of %d" % (section, len(helpsections) - 1))
+					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+						cls.cursor_pos(1, instlines + 1)
 				elif doc_has_sections:
 					cls.statusbar("Contents")
+					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+						cls.cursor_pos(1, instlines + 1)
 				# else:
 				# 	# cls.print_dim("Section %d of %d" % (section, len(helpsections) - 1))
 				# 	print()
