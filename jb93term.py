@@ -283,7 +283,7 @@ class Terminal:
 	# 
 	# update_title_only - redraws the title bar without clearing screen contents; cursor position is restored when done
 	@classmethod
-	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black", clear_scroll_buffer=True, newline=True, update_title_only=False):
+	def screen(cls, strn, *, bgcolor=None, barcolor="gray", textcolor="black", clear_scroll_buffer=True, newline=True, update_title_only=False, statusbar_text=None, statusbar_bg="gray"):
 		screensize = shutil.get_terminal_size((80, 20))
 
 		if update_title_only:
@@ -302,7 +302,7 @@ class Terminal:
 	# clear=True => removes the status bar (clears the line containing it)
 	# 
 	@classmethod
-	def statusbar(cls, strn, *, barcolor="gray", textcolor="black", clear=False):
+	def statusbar(cls, strn, *, barcolor="gray", textcolor="black", return_to_row=None, clear=False):
 		screensize = shutil.get_terminal_size((80, 20))
 
 		cls.cursor_savepos()
@@ -314,6 +314,9 @@ class Terminal:
 			print(cls._color(bg=barcolor, fg=textcolor) + strn + (" " * (screensize[0]-len(strn))) + cls._reset(), end="")
 
 		cls.cursor_restorepos()
+
+		if return_to_row:
+			cls.cursor_pos(1, return_to_row)
 
 	@classmethod
 	def cursor_pos(cls, x=1, y=1, *, returncode=False):
@@ -1314,30 +1317,30 @@ class Terminal:
 				
 				if section > 0:
 					# cls.print_dim("Section %d / Scroll: %d/%d" % (section, lineindex, maxscroll))
-					cls.statusbar("Section %d of %d / Scroll: %d/%d (%d%%)" % (section, len(helpsections)-1, lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
-					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
-						cls.cursor_pos(1, instlines + 1)
+					cls.statusbar("Section %d of %d / Scroll: %d/%d (%d%%)" % (section, len(helpsections)-1, lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)), return_to_row=instlines+1)
+					# if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+					# 	cls.cursor_pos(1, instlines + 1)
 
 				elif doc_has_sections:
 					# cls.print_dim("Contents / Scroll: %d/%d" % (lineindex, maxscroll))
-					cls.statusbar("Contents / Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
-					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
-						cls.cursor_pos(1, instlines + 1)
+					cls.statusbar("Contents / Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)), return_to_row=instlines+1)
+					# if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+					# 	cls.cursor_pos(1, instlines + 1)
 				else:
-					cls.statusbar("Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
-					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
-						cls.cursor_pos(1, instlines + 1)
+					cls.statusbar("Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)), return_to_row=instlines+1)
+					# if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+					# 	cls.cursor_pos(1, instlines + 1)
 			else:
 				# can print it all and be fine
 				if section > 0:
 					# cls.print_dim("Section %d of %d" % (section, len(helpsections) - 1))
-					cls.statusbar("Section %d of %d" % (section, len(helpsections) - 1))
-					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
-						cls.cursor_pos(1, instlines + 1)
+					cls.statusbar("Section %d of %d" % (section, len(helpsections) - 1), return_to_row=instlines+1)
+					# if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+					# 	cls.cursor_pos(1, instlines + 1)
 				elif doc_has_sections:
-					cls.statusbar("Contents")
-					if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
-						cls.cursor_pos(1, instlines + 1)
+					cls.statusbar("Contents", return_to_row=instlines+1)
+					# if platform.system() == "Darwin": # macOS cursor pos doesn't restore in statusbar()?
+					# 	cls.cursor_pos(1, instlines + 1)
 				# else:
 				# 	# cls.print_dim("Section %d of %d" % (section, len(helpsections) - 1))
 				# 	print()
