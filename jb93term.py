@@ -316,7 +316,7 @@ class Terminal:
 		cls.cursor_restorepos()
 
 	@classmethod
-	def cursor_pos(cls, x, y, *, returncode=False):
+	def cursor_pos(cls, x=1, y=1, *, returncode=False):
 		if returncode:
 			return f"\033[{y};{x}H"
 		print(f"\033[{y};{x}H", end="")
@@ -346,7 +346,7 @@ class Terminal:
 	# 1 			clear from cursor to beginning of line
 	# 2 			clear entire line
 	@classmethod
-	def cursor_clearline(cls, n, *, returncode=False):
+	def cursor_clearline(cls, n=0, *, returncode=False):
 		if returncode:
 			return f"\033[{n}K"
 		print(f"\033[{n}K", end="")
@@ -1225,7 +1225,7 @@ class Terminal:
 	# (help.txt format should be like that used on asset_intake_v3)
 	# 
 	@classmethod
-	def textreader(cls, title, filename, *, background_color=None, text_color=None, titlebar_bg="gray", titlebar_fg="black", allow_ctrlc=True, clear_on_finish=True, clear_on_start=True, raise_on_file_error=False, replacements={}, gotosection=0, theme=None, use_colors=True, use_pageupdown=True, use_homeend_scrolling=False, reverse_lines=False):
+	def textreader(cls, title, filename, *, background_color=None, text_color=None, titlebar_bg="gray", titlebar_fg="black", allow_ctrlc=True, clear_on_finish=True, clear_on_start=True, raise_on_file_error=False, replacements={}, gotosection=0, theme=None, use_colors=True, use_pageupdown=True, use_homeend_scrolling=False, reverse_lines=False, statusbar=True):
 		running = True
 
 		if not theme:
@@ -1266,13 +1266,14 @@ class Terminal:
 			cls.screen(title, bgcolor=background_color, barcolor=titlebar_bg, textcolor=titlebar_fg, newline=False)
 			termwidth, termheight = shutil.get_terminal_size((80, 20)) 
 
+			instlines = 5 # 3 guaranteed instruction lines, plus 2 for titlebar and blank line
 			cls.print("LEFT/RIGHT - change section | UP/DOWN - scroll on page", color="green", bgcolor=background_color, word_wrap=False)
 			if use_homeend_scrolling:
 				cls.print("HOME - go to top / END - go to bottom", color="green", bgcolor=background_color, word_wrap=False)
-			else:
-				pass
+				instlines += 1
 			if use_pageupdown:
 				cls.print("PGUP/PGDOWN - scroll to previous or next screen", color="green", bgcolor=background_color, word_wrap=False)
+				instlines += 1
 			cls.print("Press Q or CTRL+C to return", color="green", bgcolor=background_color, word_wrap=False)
 			cls.print(("=" * (termwidth - 2)), color=text_color, bgcolor=background_color, word_wrap=False)
 
@@ -1314,6 +1315,7 @@ class Terminal:
 				if section > 0:
 					# cls.print_dim("Section %d / Scroll: %d/%d" % (section, lineindex, maxscroll))
 					cls.statusbar("Section %d of %d / Scroll: %d/%d (%d%%)" % (section, len(helpsections)-1, lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
+					
 				elif doc_has_sections:
 					# cls.print_dim("Contents / Scroll: %d/%d" % (lineindex, maxscroll))
 					cls.statusbar("Contents / Scroll: %d/%d (%d%%)" % (lineindex, maxscroll, math.floor((lineindex / maxscroll) * 100)))
