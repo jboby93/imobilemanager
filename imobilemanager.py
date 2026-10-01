@@ -1407,7 +1407,9 @@ class IMobileDevice:
 	DEVICE_DICT_FILE: str = "device_names.json"
 
 	LIBIMOBILEDEVICE_PATH: str
-	LIBIMOBILEDEVICE_WINDOWS: str = "https://github.com/L1ghtmann/libimobiledevice/releases/download/suite-exe-21d57a9/libimobile-suite-latest_x86_64-mingw64.tar.xz:948d20c5f6460ab9d9ac6b5fdeba00ddde0c62f59882e1e1e577ed16b3ae8abe"
+	# LIBIMOBILEDEVICE_WINDOWS: str = "https://github.com/L1ghtmann/libimobiledevice/releases/download/suite-exe-21d57a9/libimobile-suite-latest_x86_64-mingw64.tar.xz:948d20c5f6460ab9d9ac6b5fdeba00ddde0c62f59882e1e1e577ed16b3ae8abe"
+	LIBIMOBILEDEVICE_WINDOWS: str = "https://github.com/haozhang96/libimobiledevice/releases/download/suite-exe-384e828/libimobile-suite-latest_x86_64-mingw64.tar.xz:204a5cde33d39b790c56b0e6932919de05dd1731f37cc8965e6fece8507625c3"
+
 	LIBIMOBILEDEVICE_MACOS: str = "https://gist.githubusercontent.com/nikias/84c79469a1d0f16ff95250f0d51858c3/raw/limd-build-macos.sh:c985256f69bfe761690f1998fddb64df20a18fffd936217570ea71535a241c9a"
 
 	LIBQRENCODE_PATH: str
@@ -1424,6 +1426,7 @@ class IMobileDevice:
 	# Windows commands
 	CMD_DEVMGR_FIND_UDIDS = ('powershell', '-NoProfile', '-Command', 'Get-PnpDevice -FriendlyName "Apple Mobile Device USB Composite Device" -PresentOnly | Select -ExpandProperty DeviceID')
 	CMD_DEVMGR_FIND_ECIDS = ("powershell", "-NoProfile", "-Command", "Get-PnpDevice -FriendlyName 'Apple Recovery *' -PresentOnly | Select -ExpandProperty DeviceID")
+	CMD_PNPUTIL_FIND_ECIDS = ("pnputil", "/enum-devices", "/class", "USBDevice", "/connected")
 
 	# macOS commands
 	CMD_IOREG_FIND_ECIDS = ("ioreg", "-r", "-w0", "-n", "Apple Mobile Device (Recovery Mode)")
@@ -1770,6 +1773,20 @@ class IMobileDevice:
 			case "Windows":
 				# Windows only (for now)
 				rtn, output = _libimd(*cls.CMD_DEVMGR_FIND_ECIDS)
+				# TODO: implement pnputil solution, much faster
+				# "pnputil", "/enum-devices", "/class", "USBDevice", "/connected"
+				# ==> CMD_PNPUTIL_FIND_ECIDS - need to figure out how to parse output
+				#
+				# example output:
+				# 
+				#	 Instance ID:                USB\VID_05AC&PID_1281\SDOM:01_CPID:8140_CPRV:10_CPFM:03_SCEP:01_BDID:04_ECID:00160DD411A1801C_IBFL:3D_SIKA:00_SRNM:[H4QKVP7H96]
+				#	 Device Description:         Apple Recovery (iBoot) USB Composite Device
+				#	 Class Name:                 USBDevice
+				#	 Class GUID:                 {88bae032-5a81-49f0-bc3d-a4ff138216d6}
+				#	 Manufacturer Name:          Apple, Inc.
+				#	 Status:                     Started
+				#	 Driver Name:                oem184.inf
+				
 			case "Darwin":
 				rtn, output = _libimd(*cls.CMD_IOREG_FIND_ECIDS)
 			case "Linux":
@@ -2291,7 +2308,7 @@ class IMDApp:
 				f"       S/N: {device.serial_number}",
 				f"      UDID: {device.udid}",
 				f"      ECID: {device.ecid}",
-				f"  Released: {device.model_releasedate} ({int((age := divmod((date.today() - date(*map(int, device.model_releasedate.split("-")))).days, 365.25))[0])} year(s), {int(age[1])} day(s) ago)",
+				f"  Released: {device.model_releasedate} ({int((age := divmod((date.today() - date(*map(int, device.model_releasedate.split("-")))).days, 365.25))[0])} year(s), {int(age[1])} day(s) ago)" if device.model_releasedate else "Released: [value missing]",
 				"",
 				f"  Software: {device.osname} {device.osversion}",
 				f"     Build: {device.osbuild}",
