@@ -1,0 +1,213 @@
+== {app_name} - Help guide
+** This script is currently in development; use at your own risk!
+
+== Contents:
+1  - Introduction
+2  - Getting started
+3  - How to navigate
+4  - IPSW management
+5  - Scanning and inspecting devices
+6  - QR code viewer
+7  - Restoring devices
+8  - Managing restore jobs
+9  - Example workflow
+10 - Interactive use
+ 
+.. Use the LEFT and RIGHT arrow keys to change section.
+.. Use the UP and DOWN arrow keys to scroll through the section if it is longer than one screen.
+.. Use the HOME key to return to the Contents section.
+ 
+.. Use the Q button, or press CTRL+C to return to the Main Menu.
+
+$SECTION$
+== Introduction
+
+## Welcome to {app_name}!
+
+{app_name} is designed to improve the workflow for restoring and managing Apple mobile devices, as well as providing device analysis features such as cellular carrier info, installed apps and storage usage, and more.
+
+For LINQ-related purposes, this script also computes the Itemmaster code for any device (not always correct for naming reasons, but credit to Hao for this incredible feature), and displays all relevant info (S/N and IMEIs) required when intaking a device from the Akatia scanners as QR codes, for easy and error-proof entry.
+
+The main advantage of using this script over Apple Configurator is that it can restore multiple devices of different models simultaneously.  In addition, it can also help you organize and manage downloaded IPSWs (firmware files).
+
+{app_name} is free software developed for the love of the game, open-source on GitHub, and uses open-source projects such as libimobiledevice and libqrencode.
+
+$SECTION$
+== Getting started
+
+~~ System requirements:
+- A computer
+- Some USB ports and cables
+- Maybe some Apple devices
+- Python 3.14+
+- A passionate hatred of iTunes (however it must still be installed on Windows)
+
+The following pip modules are required for the IPSW manager; run the below command to install them.
+
+  pip install pycurl requests tqdm
+
+$SECTION$
+== How to navigate
+
+{app_name} is a Terminal app; as such, all interaction with it is done through a Terminal or Command Prompt window and your keyboard.  Instructions and prompts are always printed to the screen.
+
+** Input prompts
+When a prompt appears on the screen with something in brackets, such as:
+~~ Enter a number between 1 and 10:
+~~ > [1] _
+1 is the default option that will be selected if you press ENTER without typing a different option.
+
+** Menus
+You can scroll through a list of menu items using the UP/DOWN arrow keys.  The highlighted option is your selection.
+
+Most menus in this script also have hotkey actions available that can act on the currently highlighted item; e.g. pressing S in the Device Inspector menu will prompt you to confirm shutting down the currently highlighted device.
+
+For multiple selection menus (e.g. the Erase Devices menu), use SPACE to mark/unmark items, and press C to confirm.
+
+$SECTION$
+== IPSW management
+
+The IPSW component of {app_name} allows you to easily manage and update your local firmwares path.  ipsw.py is also a standalone script and can be invoked by itself.
+
+== What's an IPSW?
+IPSWs are firmware files that are used for restoring and updating devices.  They contain a factory image of a specific version of iOS/iPadOS for a specific device or device class.
+
+In order to restore a device with an IPSW firmware, it must be signed by Apple; Apple will unsign older firmwares as new ones are released, preventing users from downgrading their devices.
+
+This tool uses the public ipsw.me API to identify firmwares for various devices, and downloads firmware releases directly from Apple servers.
+
+** IPSWApp - main menu
+The first menu option will download the newest firmware available for the specified device(s).  If you want to choose specific firmware versions, even ones that are no longer signed by Apple, use the second option.
+
+The download location/folder refers to where the script looks for existing firmware files and downloads new ones.
+
+From the Manage Downloaded Firmwares screen, you can view each firmware you have in your selected folder, broken down by compatible devices and iOS/iPadOS version.
+
+$SECTION$
+== Scanning and inspecting devices
+
+A device scan will detect Apple mobile devices connected to your computer by USB cables.  It can work with devices in normal boot mode and Recovery/DFU mode.
+
+In order to detect a device booted normally, it:
+- Must be unlocked
+- Must not have an MDM policy preventing USB connections to computers
+
+Once devices are scanned, they can be viewed individually in the Connected Devices menu.
+
+Pressing ENTER on a device will show a full overview, including: S/N, IMEI, cellular information, battery status, model and release date, and more.
+
+At the top of the menu, there is a list of functions with letters next to them, e.g. "S: shutdown".  These are your hotkey actions and show what will happen if you press that letter key: thus, pressing S will send a shutdown command to the highlighted device.
+
+- RENAME - assign a new name to the device (this appears in Settings > General > About)
+- RESTART - sends a reboot command to the device
+- SHUTDOWN - send a shutdown command to the device
+- PING DEVICE - shows whether the device is still connected
+- SHOW QRS - show scannable QR codes with device identifiers
+- BOOT RECOVERY - sends a 'reboot into recovery mode' command to the device
+- BOOT NORMAL - sends a 'boot into normal mode' command to the device
+- ERASE DEVICES - (see section 7 - Restoring devices)
+- RESCAN DEVICES - performs a new scan for connected devices
+- DOWNLOAD FIRMWARE - check for local IPSWs for this device, and download from Apple if needed
+- QUIT - return to the main menu
+
+** What is the "Manually identify model" message?
+Over time, Apple will release multiple revisions of a device, and each will have a different model number to differentiate them.  The sources this script references has most of them, but there will inevitably be some that are not accounted for.
+
+When an unknown model number is encountered, the script will be able to offer suggestions for the correct model for the device.  In most cases, it will be able to identify the device class (iPad 8, etc.) and storage size (64 GB); the only thing that cannot be always determined is the device's color.
+
+To proceed, select the closest match for the device from the menu.  This choice will be saved locally for later use when identifying devices.
+
+** What is the "ping device" action?
+This option indicates whether the highlighted device is currently connected and accessible; if it is, the script updates its on-hand info about it, including whether the current bootmode of the device (normal vs recovery) has changed.
+
+$SECTION$
+== QR code viewer
+** (depends on libqrencode)
+
+When a device is selected or highlighted in the Inspect Devices menu, pressing Q will show a flipbook-esque list of QR codes that represents the device's identifiers.  LINQ uses these to quickly scan asset information into their inventory system.
+
+When in the QR viewer, pressing left and right will go to the previous or next code, respectively.
+
+Codes are generated for the following data points:
+- Serial number (S/N)
+- IMEI
+- IMEI 2 (if present)
+- ICCID
+- ICCID 2 (if present)
+- ChipID
+- UDID (if device booted normally)
+- LINQ Item Code
+
+** Note: If the device is booted in recovery mode, some of these fields may be inaccurate or unavailable, as the info required to generate them won't be present.
+
+$SECTION$
+== Restoring devices
+
+To restore one or more devices, run a scan to find connected devices first.  After this is done, the Erase Device option will show in the main menu.  This function can also be invoked from the Device Inspector menu by pressing E.
+
+The Erase Devices menu will list all connected devices and allow you to select the ones to erase and restore.  You can press A to select all, D to deselect all, or I to invert the current selection.  When all devices to restore have been selected, press C to confirm.
+
+Two confirmation prompts will follow, to ensure that this is really what you want to do.  The first is a simple yes/no prompt.  The second will ask you to type in a random security phrase, ensuring that you are aware of the risks of mass-restoring devices and explicitly confirming that you are willing to proceed.
+
+Once a restore job has been started, it will appear in the Jobs Queue view (see section 8).
+
+$SECTION$
+== Managing restore jobs
+
+** no content here yet, stay tuned!
+
+$SECTION$
+== Example workflow
+
+The following is a real-world example workflow for using this script:
+- {app_name} on two machines: one for wiping/restoring (Restore-PC), and one for intake (Intake-PC)
+
+** RESTORE
+- Plug all devices into Restore-PC, make sure all needed firmware is present and that devices are unlocked or in recovery mode
+- Start the restore jobs
+- When finished, begin INTAKE with the wiped devices and begin charging next set of devices for restore
+
+** INTAKE:
+- Connect device to Intake-PC
+- Use {app_name} to get device summary -- suspend the line if needed with SF/carrier portal
+- Use QR code viewer to scan the device into LINQ's inventory management system
+- Shut down the device with hotkey action, and bag+label it
+- Repeat intake steps for all devices
+
+$SECTION$
+== Interactive use
+
+You can optionally use the features of this script interactively, without using the provided interface and menus.  This is useful for debugging purposes or for running select functions without utilizing the entire script.
+
+Start the script with the additional '-i' argument:
+##  python -i imobilemanager.py
+
+Hit Cancel at the disclaimer box, and you'll be dropped into the Python interactive command interpreter.  The features of iMobileManager are now at your disposal and control.
+
+Perhaps you want to get a list of the devices connected to your system:
+##  devices = IMobileDevice.get_connected_devices()
+
+From this, you could easily get a listing of all of their serial numbers and IMEIs:
+##  _ = [print(s) for s in [f"{dev.serial_number} - IMEI: {dev.imei}" for dev in devices]
+
+Or you can utilize the Device Summary view:
+##  IMDApp.print_device_summary(devices[0])
+
+Getting devices in recovery mode is similar:
+##  rdevices = IMobileDevice.get_recovery_devices()
+
+Directly invoke the IPSW-Downloader:
+##  IPSWApp.main()
+
+Use the Restore Manager to restore a collection of devices simultaneously in the background:
+##  restorer = IMDRestoreManager()
+##  for dev in devices:
+##    restorer.submit_job(dev)
+
+Or invoke recovery mode yourself:
+##  devices[0].enter_recovery(wait=True)
+
+  If wait is True, the command will not return until either the device is detected again in recovery mode, or the wait period (60 sec) times out.
+
+
+Read through the source code for a full listing of all properties and functions that can be used!
