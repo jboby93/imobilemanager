@@ -3272,7 +3272,7 @@ class IMDApp:
 						case "view":
 							cls.view_devices(rescan=False)
 						case "help":
-							term.textreader(f"{APP_NAME} - Help / About", "in-app-help.txt", replacements={"app_name": APP_NAME})
+							term.textreader(f"{APP_NAME} - Help / About", "in-app-help.txt", replacements={"app_name": APP_NAME, "app_version": APP_VERSION})
 			else:
 				running = False
 

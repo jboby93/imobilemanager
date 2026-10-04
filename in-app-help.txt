@@ -12,6 +12,7 @@
 8  - Managing restore jobs
 9  - Example workflow
 10 - Interactive use
+11 - About {app_name}
  
 .. Use the LEFT and RIGHT arrow keys to change section.
 .. Use the UP and DOWN arrow keys to scroll through the section if it is longer than one screen.
@@ -209,5 +210,19 @@ Or invoke recovery mode yourself:
 
   If wait is True, the command will not return until either the device is detected again in recovery mode, or the wait period (60 sec) times out.
 
-
 Read through the source code for a full listing of all properties and functions that can be used!
+
+$SECTION$
+== About {app_name}
+Version {app_version}
+
+## author: jboby93
+~~ credits to haozhang96 for a lot of the underlying code
+
+** ~[[ power to open-source software ]]~
+
+## This script uses the following open-source libraries:
+== - libimobiledevice
+  https://libimobiledevice.org/
+== - libqrencode
+  https://github.com/fukuchi/libqrencode
