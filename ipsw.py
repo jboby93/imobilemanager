@@ -7,7 +7,7 @@
 # 		- offer to delete these older firmwares
 # 		
 # 		
-import json, os, sys, time
+import functools, json, os, sys, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from hashlib import file_digest
@@ -760,6 +760,31 @@ class IPSWApp:
 			remaining = len(devices)
 
 			term.print_msg("Beginning download, this could take a while...")
+			progress = {k: False for k in target_files}
+
+			def on_download_finish(dev, future):
+				progress[dev["firmware"]["saveto"]] = True
+
+				term.screen(f"{APP_NAME} ({APP_VERSION}) - Active downloads")
+				for d in devices:
+					osname = "iOS"
+					if "Mac" in d["device"]:
+						osname = "macOS"
+					elif "iPad" in d["device"]:
+						osname = "iPadOS"
+					elif "iPhone" in d["device"] or "iPod" in d["device"]:
+						if int(d["firmware"]["version"].split(".")[0]) < 4:
+							osname = "iPhone OS"
+						else:
+							osname = "iOS"
+
+					print(f"- {d["device"]} ({d["id"]}) - {osname} {d["firmware"]["version"]} ({d["firmware"]["buildid"]})")
+					term.print_warning(f"  Size: {d["firmware"]["prettysize"]} / Release date: {d["firmware"]["prettydate"]}")
+					term.print_msg(f"  -> {d["firmware"]["saveto"]}", end="")
+					if progress[d["firmware"]["saveto"]]:
+						term.print_success(" done!")
+					else:
+						print()
 
 			n = 0
 			with ThreadPoolExecutor(max_workers=cls.dl_thread_count) as executor:
@@ -768,6 +793,7 @@ class IPSWApp:
 					url = d["firmware"]["url"]
 					filename = d["firmware"]["saveto"]
 					future = executor.submit(ipsw.download_firmware, url, filename, d, n, delete_old_versions)
+					future.add_done_callback(functools.partial(on_download_finish, d))
 					futures.append(future)
 					n += 1
 
