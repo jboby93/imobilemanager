@@ -157,9 +157,18 @@ class DeviceID(Hashable):
 	# list of DeviceIDs from seen devices
 	_historycache = []
 
+	# list of devices known to be currently restoring or updating
+	_restorecache = []
+
 	@classmethod
 	def was_id_seen(cls, deviceid):
-		return deviceid in cls._historycache
+		return len([hid for hid in cls._historycache if hid == deviceid]) > 0
+		# return deviceid in cls._historycache
+
+	@classmethod
+	def is_restoring(cls, deviceid):
+		return len([did for did in cls._restorecache if did == deviceid]) > 0
+		# return deviceid in cls._restorecache
 
 	@classmethod
 	def search_seen_ids(cls, *, serial=None, udid=None, ecid=None):
@@ -304,6 +313,7 @@ class Device(Mapping[str, Any]):
 
 		self._in_recovery = in_recovery
 		self._is_recovering = False
+		self._is_updating = False
 		self._restore_protection = False
 		self._connected = True
 
@@ -771,36 +781,72 @@ class Device(Mapping[str, Any]):
 			# logger.info("command sent")
 			return True
 
-	def update(self):
-		# idevicerestore --ecid [ECID] --no-input --plain-progress
-		logfile = normalize_path(IMobileDevice.LOG_PATH, f"update-{self.serial_number}-{strftime("%H.%M.%S")}.log")
-		ipsw = self.get_restore_ipsw_filename() or IMobileDevice.get_ipsw_path()
+	def update(self, *, logfile=None, suppress_msgs=False, ignore_errors=False):
+		if self._restore_protection:
+			term.print_error("** Device %s (%s) is currently being protected from restores and updates" % (self.model_name, self.ecid))
+			return None
 
-		rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}", "--cache-path", IMobileDevice.get_ipsw_path(), timeout=9001, restore_job=True)
+		self._is_updating = True
+		starttime = time()
+		if not suppress_msgs:
+			term.print_warning(f"\n[{self.serial_number or self.ecid}] beginning UPDATE restore process")
+
+		# idevicerestore --ecid [ECID] --no-input --plain-progress
+		if not logfile:
+			logfile = normalize_path(IMobileDevice.LOG_PATH, f"update-{self.serial_number or self.ecid}-{strftime("%H.%M.%S")}.log")
+		ipsw = self.get_restore_ipsw_filename()["fullpath"] or IMobileDevice.get_ipsw_path()
+		args = ["idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}"]
+		if ignore_errors:
+			args.append("--ignore-errors")
+		args.append(ipsw)
+
+		rtn, _ = _libimd(*args, timeout=9001, restore_job=True)
+		# rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}", "--cache-path", IMobileDevice.get_ipsw_path(), timeout=9001, restore_job=True)
+		#
+		
+		self._is_updating = False
+		endtime = time()
+		logger.debug("update process completed in %d minutes" % (round(int(endtime - starttime) / 60, 2)))
+
+		if rtn == 0:
+			# term.print_success(f"\n[{self.serial_number or self.ecid}] restore completed in {round(int(endtime - starttime) / 60, 2)} minutes\n")
+			pass
+		else:
+			term.print_warning(f"\n[{self.serial_number or self.ecid}] update FAILED in {round(int(endtime - starttime) / 60, 2)} minutes\n")
+			term.print_warning(f"* please check the logfile for this device: {logfile}")
+
+		return rtn
 
 	def restore(self, *, logfile=None, suppress_msgs=False, ignore_errors=False) -> int | None:
 		# can always use device ECID to target for restore
 		# idevicerestore --ecid [ECID] --restore-mode --erase --no-input --plain-progress [PATH to ipsws]
 		# 
 		if self._restore_protection:
-			term.print_error("** Device %s (%s) is currently being protected from restores" % (self.model_name, self.ecid))
+			term.print_error("** Device %s (%s) is currently being protected from restores and updates" % (self.model_name, self.ecid))
 			return None
 
 		self._is_recovering = True
 		starttime = time()
 		if not suppress_msgs:
-			term.print_warning(f"\n[{self.serial_number or self.ecid}] beginning restore process")
+			term.print_warning(f"\n[{self.serial_number or self.ecid}] beginning ERASE restore process")
 
 		if not logfile:
 			logfile = normalize_path(IMobileDevice.LOG_PATH, f"restore-{self.serial_number or self.ecid}-{strftime("%H.%M.%S")}.log")
 
-		ipsw = self.get_restore_ipsw_filename()["fullpath"] or IMobileDevice.get_ipsw_path()
+		# if no firmware present, download the latest
+		if ipswfile := self.get_restore_ipsw_filename():
+			ipsw = ipswfile["fullpath"]
+		else:
+			ipsw = "--latest" # IMobileDevice.get_ipsw_path()
+
+		# let idevicerestore handle downloading? or invoke IPSWApp?
+
 		args = ["idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}"]
 		if ignore_errors:
 			args.append("--ignore-errors")
 		args.append(ipsw)
 
-		rtn, _ = _libimd(*args, timeout=9001, restore_job=True)
+		rtn, _ = system(*args, timeout=9001, restore_job=True, cwd=IMobileDevice.get_ipsw_path())
 		# rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}", ipsw, timeout=9001, restore_job=True)
 
 		self._is_recovering = False
@@ -1890,7 +1936,7 @@ class IMDRestoreManager:
 	# __enter__ and __exit__ are used to allow a class to be used in a with statement
 	# 
 
-	def submit_job(self, device: Device, *, ignore_errors=False):
+	def submit_job(self, device: Device, *, erase_restore=True, ignore_errors=False):
 		# executor.submit(...).add_done_callback(fn)
 		# fn - callback with the future itself as the only argument
 		# - if the function returns Device, argument will be Device
@@ -1899,7 +1945,7 @@ class IMDRestoreManager:
 			term.print_warning("Already a known job for this device! %s" % device.identifier)
 			# return None
 
-		future = self._executor.submit((restorejob := IMDRestoreManager.Job(device.identifier)).run, device, ignore_errors)
+		future = self._executor.submit((restorejob := IMDRestoreManager.Job(device.identifier, erase_restore=erase_restore)).run, device, ignore_errors)
 		future.add_done_callback(restorejob.on_completed)
 
 		self.jobs[device.identifier.ecid] = (future, device.identifier, restorejob)
