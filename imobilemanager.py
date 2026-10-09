@@ -1818,7 +1818,7 @@ class IMobileDevice:
 		match cls.PLATFORM:
 			case "Windows":
 				# Windows only (for now)
-				rtn, output = _libimd(*cls.CMD_DEVMGR_FIND_ECIDS)
+				# rtn, output = _libimd(*cls.CMD_DEVMGR_FIND_ECIDS)
 				# TODO: implement pnputil solution, much faster
 				# "pnputil", "/enum-devices", "/class", "USBDevice", "/connected"
 				# ==> CMD_PNPUTIL_FIND_ECIDS - need to figure out how to parse output
@@ -1832,7 +1832,18 @@ class IMobileDevice:
 				#	 Manufacturer Name:          Apple, Inc.
 				#	 Status:                     Started
 				#	 Driver Name:                oem184.inf
-				
+				rtn, output = _libimd(*cls.CMD_PNPUTIL_FIND_ECIDS)
+				# powershell script returns a listing of Instance IDs, so we'll do that here
+				devices = []
+				for d in output.split("\n\n")[1:]:
+					device = {}
+					parts = d.split("\n")
+					for p in parts:
+						key, value = p.split(": ")
+						value = value.strip()
+						device[key] = value
+					devices.append(device)
+				output = "\n".join([d["Instance ID"] for d in devices if "Apple Recovery" in d["Device Description"]])
 			case "Darwin":
 				rtn, output = _libimd(*cls.CMD_IOREG_FIND_ECIDS)
 			case "Linux":
