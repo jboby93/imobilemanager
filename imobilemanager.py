@@ -1809,7 +1809,7 @@ class IMobileDevice:
 			if DeviceID.is_restoring(udid=udid):
 				term.print_error("* unable to connect to device with UDID %s; device is currently being restored" % udid)
 				continue
-			
+
 			if (d := Device.from_udid(udid)):
 				devices.append(d)
 			else:
@@ -1864,7 +1864,8 @@ class IMobileDevice:
 						value = value.strip()
 						device[key] = value
 					devices.append(device)
-				output = "\n".join([d["Instance ID"] for d in devices if "Apple Recovery" in d["Device Description"]])
+				# fix: also detect DFU devices
+				output = "\n".join([d["Instance ID"] for d in devices if "Apple Recovery" in d["Device Description"] or ("Apple Mobile Device USB Device" in d["Device Description"] and "ECID:" in d["Instance ID"])])
 			case "Darwin":
 				rtn, output = _libimd(*cls.CMD_IOREG_FIND_ECIDS)
 			case "Linux":
