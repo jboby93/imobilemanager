@@ -127,9 +127,13 @@ class IPSW:
 		detected_firmwares = {}
 
 		for f in ipsw_files:
-			f_parts = f.split("-")[-1].split("_")
-			f_version = f_parts[-3]
-			f_devices = f_parts[:-3][0].replace(",i", ";i").split(";")
+			try:
+				f_parts = f.split("-")[-1].split("_")
+				f_version = f_parts[-3]
+				f_devices = f_parts[:-3][0].replace(",i", ";i").split(";")
+			except Exception as e:
+				logger.warning(f"invalid filename? ignoring: '{f}'")
+				continue
 
 			for d in f_devices:
 				if d not in self.device_names:
