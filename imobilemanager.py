@@ -166,9 +166,23 @@ class DeviceID(Hashable):
 		# return deviceid in cls._historycache
 
 	@classmethod
-	def is_restoring(cls, deviceid):
-		return len([did for did in cls._restorecache if did == deviceid]) > 0
+	def is_restoring(cls, *, deviceid=None, udid=None, ecid=None):
+		if deviceid:
+			return len([did for did in cls._restorecache if did == deviceid]) > 0
+		if udid:
+			return len([did for did in cls._restorecache if did.udid == udid]) > 0
+		if ecid:
+			return len([did for did in cls._restorecache if did.ecid == ecid]) > 0
 		# return deviceid in cls._restorecache
+		raise ValueError("one of deviceid, udid, or ecid must be provided")
+
+	@classmethod
+	def mark_restoring(cls, deviceid):
+		cls._restorecache.append(deviceid)
+
+	@classmethod
+	def unmark(cls, deviceid):
+		cls._restorecache.remove(deviceid)
 
 	@classmethod
 	def search_seen_ids(cls, *, serial=None, udid=None, ecid=None):
@@ -800,9 +814,10 @@ class Device(Mapping[str, Any]):
 			args.append("--ignore-errors")
 		args.append(ipsw)
 
+		DeviceID.mark_restoring(self.identifier)
 		rtn, _ = _libimd(*args, timeout=9001, restore_job=True)
 		# rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", f"--logfile={logfile}", "--cache-path", IMobileDevice.get_ipsw_path(), timeout=9001, restore_job=True)
-		#
+		DeviceID.unmark(self.identifier)
 		
 		self._is_updating = False
 		endtime = time()
@@ -846,8 +861,10 @@ class Device(Mapping[str, Any]):
 			args.append("--ignore-errors")
 		args.append(ipsw)
 
+		DeviceID.mark_restoring(self.identifier)
 		rtn, _ = system(*args, timeout=9001, restore_job=True, cwd=IMobileDevice.get_ipsw_path())
 		# rtn, _ = _libimd("idevicerestore", "--ecid", self.ecid, "--no-input", "--restore-mode", "--erase", f"--logfile={logfile}", ipsw, timeout=9001, restore_job=True)
+		DeviceID.unmark(self.identifier)
 
 		self._is_recovering = False
 		endtime = time()
@@ -1477,21 +1494,21 @@ class IMobileDevice:
 	# macOS commands
 	CMD_IOREG_FIND_ECIDS = ("ioreg", "-r", "-w0", "-n", "Apple Mobile Device (Recovery Mode)")
 
-	@classmethod
-	def get_device_from_id(cls, deviceid: DeviceID):
-		# attempts to find if a device with the given ID is still connected
-		# check normal-mode devices using UDID if present
-		# (can also scan for devices using
-		# 
-		# Windows:
-		# _libimd('powershell', '-NoProfile', '-Command', 'Get-PnpDevice -FriendlyName "Apple Mobile Device USB Composite Device" -PresentOnly | Select -ExpandProperty DeviceID')
-		# 
-		# macOS: (TODO)
-		# _libimd("ioreg", "-r", "-w0", "-n", "Apple Mobile Device ???")
-		# 
-		# )
-		# check recovery-mode devices using ECID if present (should always be present because it can be obtained through normal mode` )
-		pass
+	# @classmethod
+	# def get_device_from_id(cls, deviceid: DeviceID):
+	# 	# attempts to find if a device with the given ID is still connected
+	# 	# check normal-mode devices using UDID if present
+	# 	# (can also scan for devices using
+	# 	# 
+	# 	# Windows:
+	# 	# _libimd('powershell', '-NoProfile', '-Command', 'Get-PnpDevice -FriendlyName "Apple Mobile Device USB Composite Device" -PresentOnly | Select -ExpandProperty DeviceID')
+	# 	# 
+	# 	# macOS: (TODO)
+	# 	# _libimd("ioreg", "-r", "-w0", "-n", "Apple Mobile Device ???")
+	# 	# 
+	# 	# )
+	# 	# check recovery-mode devices using ECID if present (should always be present because it can be obtained through normal mode` )
+	# 	pass
 		
 	@classmethod
 	def get_name_for_product_type(cls, product_type):
@@ -1789,6 +1806,10 @@ class IMobileDevice:
 		# get_connected_ids() will return UDIDs of devices that may already be in the middle of a restore!
 		devices = []
 		for udid in cls.get_connected_ids():
+			if DeviceID.is_restoring(udid=udid):
+				term.print_error("* unable to connect to device with UDID %s; device is currently being restored" % udid)
+				continue
+			
 			if (d := Device.from_udid(udid)):
 				devices.append(d)
 			else:
