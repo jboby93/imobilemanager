@@ -7,13 +7,14 @@ import enum, importlib.util, json, logging, os, platform, re, shutil, subprocess
 from base64 import b64decode
 from collections import defaultdict, namedtuple
 from collections.abc import Collection, Container, Iterator, Mapping, MutableMapping, MutableSet, Set
+from concurrent.futures import Executor, ThreadPoolExecutor
 from datetime import date, datetime, timezone, timedelta
 from hashlib import file_digest
 from itertools import batched, chain, zip_longest
-from concurrent.futures import Executor, ThreadPoolExecutor
+from queue import Queue
 from time import sleep, strftime, time
-from types import TracebackType
-from typing import cast, Any
+from types import MappingProxyType as ReadOnlyMappingView, TracebackType
+from typing import cast, Any, List, Self, Tuple
 from urllib.request import urlretrieve
 from xml.etree import ElementTree
 
@@ -68,6 +69,69 @@ class Carrier(enum.Enum):
 	# @override
 	def __str__(self) -> str:
 		return self.value[0]
+
+""" - incorrect reporting via iccid?
+class Carrier(enum.Enum):
+	# Carrier = (Name, MCC+MNC, MII+CC+IIN)
+	# https://mcc-mnc.net/mcc-mnc.xlsx
+	# https://iccidnumber.com/issuer-database
+	# https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/main/assets/latest_carrier_id/carrier_list.textpb
+	BOOTSTRAP = \
+		(
+			"Bootstrap",
+			frozenset((310_380,)), # This is the default AT&T bootstrap carrier that has been used since the iPhone 2G, which was originally an AT&T-exclusive device.
+			Empty.SET
+		)
+	VERIZON = \
+		(
+			"Verizon",
+			frozenset(chain((312_770,), (310_000 + mnc for mnc in (4, 5, 6, 10, 12, 13, 350, *range(590, 600), 820, 890, 910)), (311_000 + mnc for mnc in (12, 110, *range(270, 290), 390, *range(480, 490), 590)))),
+			frozenset(chain((89_18_08,), (89_14_00 + iin for iin in (33, 44, 80, 83, 86, 87, 89))))
+		)
+	ATT = \
+		(
+			"AT&T",
+			frozenset(chain((312_090, 312_670, 312_680, 313_210), (310_000 + mnc for mnc in (16, 30, 70, 80, 90, 150, 170, 280, 410, 560, 670, 680, 950)), (311_000 + mnc for mnc in (70, 90, 180, 190)))),
+			frozenset(chain((89_01_41, 89_01_38), (89_12_00 + iin for iin in (53, 83, 88, 84))))
+		)
+	TMOBILE = \
+		(
+			"T-Mobile",
+			frozenset(chain((310_000 + mnc for mnc in (26, 160, *range(200, 280, 10), 300, 310, 490, 530, 640, 660, 800)), (311_490, 311_882, 312_250))),
+			frozenset(chain((89_01_24, 89_01_26), (89_10_00 + cc_iin for cc_iin in (1_60, 2_10, 2_30, 2_40, 2_60, 2_70, 3_10, 5_80))))
+		)
+
+	################################################################################
+	# Factory Methods
+	################################################################################
+
+	@classmethod
+	def from_bundle(cls, bundle: Mapping[str, Any], /, *, mcc: str | None = None, mnc: str | None = None) -> Self | None:
+		return carrier if isinstance(bundle_id := bundle.get("CFBundleIdentifier"), str) and (carrier := cls.from_bundle_id(bundle_id)) != cls.from_imsi(f"{mcc}{mnc}") != Carrier.BOOTSTRAP else None
+
+	@classmethod
+	# @lru_cache
+	def from_bundle_id(cls, bundle_id: str) -> Self | None:
+		return next((carrier for carrier in cls if carrier.name in bundle_id.upper()), None)
+
+	@classmethod
+	# @lru_cache
+	def from_imsi(cls, imsi: str) -> Self | None:
+		return next((carrier for carrier in cls if int(mcc_mnc) in carrier.value[1]), None) if (mcc_mnc := imsi[:6]).isdigit() else None
+
+	@classmethod
+	# @lru_cache
+	def from_iccid(cls, iccid: str) -> Self | None:
+		return next((carrier for carrier in cls if int(mii_cc_iin) in carrier.value[2]), None) if (mii_cc_iin := iccid[:6]).isdigit() else None
+
+	################################################################################
+	# Magic Methods
+	################################################################################
+
+	# @override
+	def __str__(self) -> str:
+		return self.value[0]
+"""
 
 # https://github.com/samdmarshall/iOS-Internals/blob/master/lockbot/lockbot/lockdown_keys.h
 class Attribute(enum.EnumDict):
@@ -242,6 +306,119 @@ class ChipID():
 		}
 		return f"{self.__class__.__name__}({dict_repr})"
 	
+# TODO: shows interactive instructions for manually putting a device in DFU mode
+class DFUModeHelper():
+	@classmethod
+	def main(cls, *, allow_ctrlc=True):
+		try:
+			term.screen("DFU Assistant")
+			term.print_msg("Need assistance in putting a device into DFU mode?")
+			term.print("I can give you a guided walkthrough.")
+			print()
+
+			if not term.input_yn("Continue?"):
+				return
+
+			print()
+			if term.input_yn("Does your device have a Home Button?", False):
+				if term.input_yn("Is it an iPhone 7 (Plus)?", False):
+					# iPhone 7/7+ DFU
+					term.screen("DFU Assistant - iPhone 7/7+")
+					term.print_msg("Get ready")
+					for i in range(3,0,-1):
+						print(f"{i}... ", end="", flush=True)
+						sleep(1)
+
+					print("\n")
+
+					term.print_msg("Press and HOLD the Home and Volume Down Buttons")
+					for i in range(10,0,-1):
+						print(f"{i}... ", end="", flush=True)
+						sleep(1)
+					print("\n")
+
+					term.print_msg("Release the Power Button and keep holding the Volume Down button")
+					for i in range(10,0,-1):
+						print(f"{i}... ", end="", flush=True)
+						sleep(1)
+					print("\n")
+
+					term.print_success("If the screen is still black, your device is in DFU mode.")
+					term.print("An Apple boot logo or recovery screen means the process didn't work.")
+					if term.input_yn("Repeat these instructions?", False):
+						cls.main()
+				else:
+					# anything else DFU
+					term.screen("DFU Assistant - Legacy iOS Device")
+					term.print_msg("Get ready")
+					for i in range(3,0,-1):
+						print(f"{i}... ", end="", flush=True)
+						sleep(1)
+
+					print("\n")
+
+					term.print_msg("Press and HOLD the Home and Power Buttons")
+					for i in range(10,0,-1):
+						print(f"{i}... ", end="", flush=True)
+						sleep(1)
+					print("\n")
+
+					term.print_msg("Release the Power Button and keep holding the Home button")
+					for i in range(10,0,-1):
+						print(f"{i}... ", end="", flush=True)
+						sleep(1)
+					print("\n")
+
+					term.print_success("If the screen is still black, your device is in DFU mode.")
+					term.print("An Apple boot logo or recovery screen means the process didn't work.")
+					if term.input_yn("Repeat these instructions?", False):
+						cls.main()
+			else:
+				# 'modern' device DFU
+				term.screen("DFU Assistant - Modern iOS Device")
+				term.print_msg("Get ready")
+				for i in range(3,0,-1):
+					print(f"{i}... ", end="", flush=True)
+					sleep(1)
+
+				print("\n")
+
+				term.print_msg("Press and release Volume Up")
+				sleep(0.66)
+				print()
+				term.print_msg("Press and release Volume Down")
+				sleep(0.66)
+				print()
+
+				term.print_msg("Press and HOLD the Power Button")
+				for i in range(10,0,-1):
+					print(f"{i}... ", end="", flush=True)
+					sleep(1)
+				print("\n")
+
+				term.print_msg("Keep holding Power, and press and HOLD the Volume Down button")
+				for i in range(5,0,-1):
+					print(f"{i}... ", end="", flush=True)
+					sleep(1)
+				print("\n")
+
+				term.print_msg("Release the Power Button and keep holding the Volume Down button")
+				for i in range(10,0,-1):
+					print(f"{i}... ", end="", flush=True)
+					sleep(1)
+				print("\n")
+
+				term.print_success("If the screen is still black, your device is in DFU mode.")
+				term.print("An Apple boot logo or recovery screen means the process didn't work.")
+				if term.input_yn("Repeat these instructions?", False):
+					cls.main()
+		except KeyboardInterrupt as e:
+			if not allow_ctrlc:
+				raise e
+
+			print()
+			term.print_warning("** Cancelled by user")
+			term.pause("Press any key to return to the main menu...")
 
 class MobileApp():
 	def __init__(self, **kwargs):

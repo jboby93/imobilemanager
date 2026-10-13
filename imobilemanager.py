@@ -37,7 +37,7 @@ from jb93term import Terminal as term
 # ipsw.me API
 from ipsw import IPSW, IPSWApp
 # various data structures
-from imm_defs import REPLCompleter, Carrier, Attribute, DomainKey, MobileApp, ChipID
+from imm_defs import REPLCompleter, Carrier, Attribute, DomainKey, MobileApp, ChipID, DFUModeHelper
 
 APP_NAME="iMobileManager"
 APP_VERSION="0.8 beta"
@@ -549,7 +549,7 @@ class Device(Mapping[str, Any]):
 			Attribute.TELEPHONY_CAPABLE: True if info[Attribute.Recovery.IMEI_1] else False,
 			Attribute.PRODUCT_TYPE: (product_type := info[Attribute.Recovery.PRODUCT_TYPE]),
 			"ModelName": IMobileDevice.ipsw.device_names[product_type],
-			"BootMode": info[Attribute.Recovery.MODE], # Recovery, or DFU
+			"BootMode": info[Attribute.Recovery.MODE], # Recovery, or DFU, or Port DFU
 			"irecovery-dump": info
 		}
 
@@ -1265,6 +1265,7 @@ class Device(Mapping[str, Any]):
 
 	@property
 	def carrier_1(self) -> Carrier | None:
+		# return Carrier.from_iccid(self.iccid) or (Carrier.from_bundle(carrier_bundles[0]["CFBundleIdentifier"]) if (carrier_bundles := self.is_cellular_capable and self["CarrierBundleInfoArray"]) else (imsi1 := self.imsi_1) and Carrier.from_imsi(imsi1) or None)
 		return Carrier.from_bundle(carrier_bundles[0]["CFBundleIdentifier"]) if (carrier_bundles := self.is_cellular_capable and self["CarrierBundleInfoArray"]) else (imsi1 := self.imsi_1) and Carrier.from_imsi(imsi1) or None
 
 	@property
@@ -1645,7 +1646,7 @@ class IMobileDevice:
 							os.makedirs(cls.LIBRARY_PATH)
 
 				if not cls.PROGRAM_PATH:
-					cls.PROGRAM_PATH = term.modalalert("Important message", f"It looks like this is your first time running the script.  We need to install a few dependencies first.\n\nThis script uses libimobiledevice and libqrencode, both free and open-source software, for various actions.\n\nYou can install these to your user folder, AppData, or the current directory containing the script files.",
+					cls.PROGRAM_PATH = term.modalalert("Important message", f"It looks like this is your first time running the script.  We need to install a few dependencies first.\n\nThis script uses libimobiledevice and libqrencode, both free and open-source software, for various actions.\n\nYou can install these to your user folder, AppData, or the current directory containing the script files.\n\nIf unsure, use the default selection.",
 							buttons=[
 								{
 									"label": "User folder",
@@ -3097,9 +3098,9 @@ class IMDApp:
 
 			option = job[2].device.model_name
 			if not device_id.serial:
-				option = f"{option} (ECID: {device_id.ecid})"
+				option = f"  {option} (ECID: {device_id.ecid})"
 			else:
-				option = f"{option} (S/N: {device_id.serial})"
+				option = f"  {option} (S/N: {device_id.serial})"
 
 			status = "not active"
 			if job[0].running():
@@ -3273,6 +3274,7 @@ class IMDApp:
 				{"label": "View restore job queue", "function": cls.view_restore_jobs, "requires_jobs": True},
 				{"label": "ERASE DEVICES - idevicerestore", "function": "wipe", "requires_scan": True},
 				{"label": "ERASE DEVICES - cfgutil (macOS only)", "function": "wipe-appl", "requires_scan": True, "platform": "Darwin"},
+				{"label": "DFU Helper", "function": "dfu-helper"},
 				{"label": "Update data sources", "function": "update-data"},
 				{"label": "Update/reinstall runtimes", "function": "update-deps"},
 				{"label": "Verify runtimes", "function": "verify-deps"},
@@ -3352,6 +3354,8 @@ class IMDApp:
 							cls.view_devices(rescan=False)
 						case "help":
 							term.textreader(f"{APP_NAME} - Help / About", "in-app-help.txt", replacements={"app_name": APP_NAME, "app_version": APP_VERSION})
+						case "dfu-helper":
+							DFUModeHelper.main()
 			else:
 				running = False
 
