@@ -2221,7 +2221,7 @@ class IMDApp:
 				"RESTORING"
 			) # ["ModelName", "SerialNumber", "DeviceName"]
 		else:
-			if opt["BootMode"] == "Normal":
+			if opt["BootMode"].lower() == "normal":
 				fields = (
 					opt["ModelName"],
 					opt["SerialNumber"],
