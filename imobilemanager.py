@@ -1707,12 +1707,17 @@ class IMobileDevice:
 				cls.LIBQRENCODE_PATH = "/usr/local/bin/"
 				cls.LIBQRENCODE_EXE = "qrencode"
 
+				def which(cmd):
+					if (path := str(system("which", cmd)[1])) in ["", f"{cmd} not found"]:
+						return None
+					return path
+
 				libmobiledevice_hash = cls.LIBIMOBILEDEVICE_MACOS.split(":")[-1]
 				libmobiledevice_url = cls.LIBIMOBILEDEVICE_MACOS.replace(":" + libmobiledevice_hash, "")
 
 				installsh = urlretrieve(libmobiledevice_url, os.path.join(cls.PROGRAM_PATH, "limd-build-macos.sh"))
-				libqrencode_path = cast(str, system("which", "qrencode")[1])
-				if str(system("which", "irecovery")[1]) in ["", "irecovery not found"] or force_reinstall:
+				
+				if not which("irecovery") or force_reinstall:
 					installsh_ex = installsh[0]
 					# with open(installsh, "rb") as file:
 					# 	print(str(file_digest(file, "sha256").hexdigest()))
@@ -1723,9 +1728,18 @@ class IMobileDevice:
 				if use_which:
 					cls.LIBIMOBILEDEVICE_PATH = os.path.dirname(str(system("which", "irecovery")[1]))
 
-				if (system("which", "qrencode")[1] == "qrencode not found" if use_which else not os.path.isfile(normalize_path(cls.LIBQRENCODE_PATH, "qrencode"))) or force_reinstall:
+				if ((not which("qrencode")) if use_which else not os.path.isfile(normalize_path(cls.LIBQRENCODE_PATH, "qrencode"))) or force_reinstall:
 					term.print_msg("  Downloading libqrencode...")
-					system("brew", "install", "libqrencode")
+
+					if system("which", "brew")[1] != "brew not found":
+						term.print_warning("* installing via homebrew...")
+						system("brew", "install", "libqrencode")
+					elif system("which", "port")[1] != "port not found":
+						term.print_warning("* requesting sudo privilege to install via MacPorts...")
+						system("sudo", "port", "install", "qrencode")
+					else:
+						# TODO: pull and compile it from github, install manually
+						pass
 				if use_which:
 					cls.LIBQRENCODE_PATH = "/".join(str(system("which", "qrencode")[1]).split("/")[:-1])
 			case "Linux":
