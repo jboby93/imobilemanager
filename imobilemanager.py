@@ -62,7 +62,7 @@ SYSTEM_SHELLVALUE_FLIPPED=False # becomes True if the flag is dynamically change
 #   => (returncode: int, output: str)
 # on TimeoutError:
 #   => (timeout: int, None)
-def system2(*args, **kwargs):
+def system(*args, **kwargs):
 	global SYSTEM_SHELLVALUE, SYSTEM_SHELLVALUE_FLIPPED
 	try:
 		logger.debug("[*] Running %s", args)
@@ -106,12 +106,6 @@ def system2(*args, **kwargs):
 			term.print_error("* Something went wrong trying to run subprocesses on your system :(")
 			term.print_error(str(exception))
 			raise exception
-
-# STRICTLY for compatibility while remainder of codebase is updated for the new change
-def system(*args: str, **kwargs: Any) -> str | None:
-	# => (returncode: int, output: str | None)
-	# return system2(*args, **kwargs)[1]
-	return system2(*args, **kwargs)
 
 # returns True if successful, False otherwise
 def download_file(url, saveto, *, binary=False, pause_on_error=True, raise_on_fail=False) -> bool:
