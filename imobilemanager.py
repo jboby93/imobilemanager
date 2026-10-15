@@ -626,13 +626,17 @@ class Device(Mapping[str, Any]):
 		# ECID should always be present
 		# Serial will be present if iOS is not mangled
 		if self.udid:
+			logger.debug(f"udid present! {self.udid}")
 			in_normal = "not found" not in _libimd("ideviceinfo", "--udid", self.udid, "--xml")[1]
+			logger.debug(f"in_normal: {in_normal}")
 			udid = self.udid
 		else:
+			logger.debug(f"udid not present! ecid: {self.ecid}")
 			# if it's in recovery mode, this is good
 			# do a rescan and get all connected UDIDs/ECIDs
 			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")[1]
-			
+			logger.debug(f"in_recovery [1]: {in_recovery}")
+
 			if not in_recovery:
 				# else, get all normal devices and see if any other info matches (Serial, ECID)
 				ndevs = IMobileDevice.get_connected_devices()
@@ -650,6 +654,7 @@ class Device(Mapping[str, Any]):
 
 		if not in_normal and not in_recovery:
 			in_recovery = "Unable to connect to device" not in _libimd("irecovery", "--ecid", self.ecid, "--query")[1]
+			logger.debug(f"in_recovery [2]: {in_recovery}")
 
 		if in_normal:
 			# self._id = identifier
@@ -665,7 +670,7 @@ class Device(Mapping[str, Any]):
 				if not plist:
 					return False
 						
-				plist["BootMode"] = "Normal"
+				plist["BootMode"] = "normal"
 				self._info = plist
 
 				self._storage = self.get_storage_info(refresh=True)
